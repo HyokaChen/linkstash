@@ -156,7 +156,11 @@ public class PageFetcher(HttpClient http)
             {
                 var repo = $"{segments[^2]}/{segments[^1]}";
                 if (value.StartsWith(repo, StringComparison.OrdinalIgnoreCase))
+                {
+                    // 短描述型标题（"owner/repo: 简介"）与长描述型（"… · GitHub"）
+                    // 都要收敛为 owner/repo，否则整段描述会进入 markdown 首段。
                     return repo;
+                }
             }
         }
 

@@ -18,10 +18,11 @@ public class GlossaryTests
 
     [Theory]
     // 词边界：不能误伤包含目标词的更长单词
-    [InlineData("A multi-agent reinforcement learning framework", "A 多智能体 reinforcement learning framework")]
-    [InlineData("An agent-based modelling toolkit", "An 基于智能体的 modelling toolkit")]
+    [InlineData("A multi-agent reinforcement learning framework", "A 多智能体 reinforcement learning 框架")]
+    [InlineData("An agent-based modelling toolkit", "An 基于智能体的 modelling 工具包")]
     [InlineData("The reagent was stored in a bottle", "The reagent was stored in a bottle")]
-    [InlineData("repository documentation", "repository documentation")]
+    // repository 是 repo 的完整拼写，同义替换，不属于误伤
+    [InlineData("repository documentation", "仓库 documentation")]
     public void Apply_RespectsWordBoundaries(string input, string expected) =>
         Assert.Equal(expected, Glossary.Apply(input));
 
