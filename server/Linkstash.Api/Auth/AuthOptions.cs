@@ -8,5 +8,9 @@ public class AuthOptions
 
 public class ProxyOptions
 {
-    public string Url { get; set; } = "";
+    /// <summary>
+    /// 抓取页面时使用的代理（可选，留空则直连）。
+    /// 仅影响 PageFetcher，不影响翻译链路。
+    /// </summary>
+    public string FetchUrl { get; set; } = "";
 }

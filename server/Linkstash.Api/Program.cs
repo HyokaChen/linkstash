@@ -18,21 +18,24 @@ var store = new SqliteCollectionStore(conn);
 await store.InitAsync();
 builder.Services.AddSingleton<ICollectionStore>(store);
 
+// 抓取与翻译使用不同的代理配置：
+// - Proxy:FetchUrl  仅作用于抓取页面（部分站点在境内直连会挂起/超时）
+// - 翻译（MyMemory）实测直连可用，不走代理，也不读取 HTTPS_PROXY 环境变量，
+//   避免系统代理设置意外改变翻译链路行为。
 var proxy = builder.Configuration.GetSection("Proxy").Get<ProxyOptions>() ?? new ProxyOptions();
-var proxyStr = string.IsNullOrWhiteSpace(proxy.Url) ? Environment.GetEnvironmentVariable("HTTPS_PROXY") ?? Environment.GetEnvironmentVariable("https_proxy") ?? "" : proxy.Url;
-HttpClientHandler? MakeHandler() => string.IsNullOrWhiteSpace(proxyStr)
-    ? null
-    : new HttpClientHandler { Proxy = new WebProxy(proxyStr), UseProxy = true };
+var fetchProxyStr = string.IsNullOrWhiteSpace(proxy.FetchUrl) ? "" : proxy.FetchUrl;
+HttpMessageHandler FetchHandler() => string.IsNullOrWhiteSpace(fetchProxyStr)
+    ? new HttpClientHandler()
+    : new HttpClientHandler { Proxy = new WebProxy(fetchProxyStr), UseProxy = true };
 
 builder.Services.AddHttpClient<PageFetcher>(c =>
 {
-    c.Timeout = TimeSpan.FromSeconds(15);
+    c.Timeout = TimeSpan.FromSeconds(30);
     c.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (linkstash/1.0)");
-}).ConfigurePrimaryHttpMessageHandler(() => MakeHandler() as HttpMessageHandler ?? new HttpClientHandler());
+}).ConfigurePrimaryHttpMessageHandler(FetchHandler);
 
 builder.Services.AddHttpClient<IMyMemoryApi>(c => c.BaseAddress = new Uri("https://api.mymemory.translated.net"))
-    .AddTypedClient(c => RestService.For<IMyMemoryApi>(c))
-    .ConfigurePrimaryHttpMessageHandler(() => MakeHandler() as HttpMessageHandler ?? new HttpClientHandler());
+    .AddTypedClient(c => RestService.For<IMyMemoryApi>(c));
 var translateOptions = builder.Configuration.GetSection("Translate").Get<TranslateOptions>() ?? new TranslateOptions();
 builder.Services.AddSingleton(translateOptions);
 builder.Services.AddScoped<TranslateService>();
