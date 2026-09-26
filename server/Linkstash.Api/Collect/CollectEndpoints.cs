@@ -28,14 +28,21 @@ public static class CollectEndpoints
 
                     try
                     {
-                        var (title, isFallback, _) = await fetcher.FetchAsync(req.Url, false);
-                        var translation = await translator.TranslateAsync(title);
+                        var fetched = await fetcher.FetchAsync(req.Url, false);
+
+                        // 描述优先：og:description/meta description 常是真正的简介
+                        // （GitHub 仓库简介即在此），比标题信息量大；缺失时退回标题。
+                        var source = string.IsNullOrWhiteSpace(fetched.Description)
+                            ? fetched.Title
+                            : fetched.Description;
+                        var translation = await translator.TranslateAsync(source);
+
                         var item = await store.AddAsync(
                             req.Url,
-                            title,
+                            fetched.Title,
                             translation,
                             null,
-                            isFallback
+                            fetched.IsFallback
                         );
                         return Results.Json(
                             new CollectResult(
@@ -145,7 +152,17 @@ public static class CollectEndpoints
         TranslateService translator
     )
     {
-        var (_, _, links) = await fetcher.FetchAsync(url, true);
+        var fetched = await fetcher.FetchAsync(url, true);
+
+        // 优先使用结构化条目（产品名称/介绍/URL 自带），无需逐个抓取目标页；
+        // 介绍通常已是中文，TranslateService 会自动跳过翻译。
+        if (fetched.Products.Count > 0)
+            return
+            [
+                .. fetched.Products.Select(p => new CandidateItem(p.Url, p.Name, p.Description, false))
+            ];
+
+        var links = fetched.Links;
         var candidates = new List<CandidateItem>(links.Count);
         var gate = new object();
 
@@ -154,25 +171,27 @@ public static class CollectEndpoints
             new ParallelOptions { MaxDegreeOfParallelism = 5 },
             async (link, ct) =>
             {
+                // 聚合页里的链接文本常是裸 URL，几乎总需回源取标题/描述。
                 var title = link.Title;
+                string? description = null;
                 var isFallback = false;
-                if (string.IsNullOrWhiteSpace(title))
+                try
                 {
-                    try
-                    {
-                        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                        cts.CancelAfter(TimeSpan.FromSeconds(10));
-                        var (t, fb, _) = await fetcher.FetchAsync(link.Url, false, cts.Token);
-                        title = t;
-                        isFallback = fb;
-                    }
-                    catch (Exception)
-                    {
-                        title = link.Url;
-                    }
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    cts.CancelAfter(TimeSpan.FromSeconds(10));
+                    var target = await fetcher.FetchAsync(link.Url, false, cts.Token);
+                    title = target.Title;
+                    description = target.Description;
+                    isFallback = target.IsFallback;
+                }
+                catch (Exception)
+                {
+                    title = string.IsNullOrWhiteSpace(title) ? link.Url : title;
                 }
 
-                var translation = await translator.TranslateAsync(title);
+                // 优先翻译描述（信息量大于标题），缺失才退回标题。
+                var source = string.IsNullOrWhiteSpace(description) ? title : description!;
+                var translation = await translator.TranslateAsync(source);
                 lock (gate)
                 {
                     candidates.Add(new CandidateItem(link.Url, title, translation, isFallback));
