@@ -16,7 +16,8 @@ namespace Linkstash.Api.Tests;
 /// </summary>
 public class LiveFetchTests(ITestOutputHelper output)
 {
-    private static bool Enabled => Environment.GetEnvironmentVariable("LINKSTASH_LIVE_TESTS") == "1";
+    private static bool Enabled =>
+        Environment.GetEnvironmentVariable("LINKSTASH_LIVE_TESTS") == "1";
 
     private static PageFetcher Fetcher(string? proxy = null)
     {
@@ -27,7 +28,9 @@ public class LiveFetchTests(ITestOutputHelper output)
             handler.UseProxy = true;
         }
         var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+        );
         return new PageFetcher(http);
     }
 
@@ -47,7 +50,10 @@ public class LiveFetchTests(ITestOutputHelper output)
             {
                 return await fetcher.FetchAsync(url, extractLinks);
             }
-            catch (Exception ex) when (attempt < 4 && ex is HttpRequestException or TaskCanceledException or IOException)
+            catch (Exception ex)
+                when (attempt < 4
+                    && ex is HttpRequestException or TaskCanceledException or IOException
+                )
             {
                 output.WriteLine($"  [retry {attempt}] {ex.GetType().Name}: {ex.Message}");
                 await Task.Delay(500 * attempt);
@@ -94,7 +100,9 @@ public class LiveFetchTests(ITestOutputHelper output)
 
         var whiteboard = result.Products.FirstOrDefault(p => p.Name.Contains("Whiteboard"));
         Assert.NotNull(whiteboard);
-        output.WriteLine($"  -> {whiteboard.Name} | {whiteboard.Url} | {whiteboard.Description[..Math.Min(60, whiteboard.Description.Length)]}");
+        output.WriteLine(
+            $"  -> {whiteboard.Name} | {whiteboard.Url} | {whiteboard.Description[..Math.Min(60, whiteboard.Description.Length)]}"
+        );
 
         Assert.Equal("https://github.com/devdotfast/whiteboard", whiteboard.Url);
         Assert.Contains("YC W26", whiteboard.Description);

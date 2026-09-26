@@ -36,12 +36,9 @@ public class TranslateService(
             return text.Trim();
         }
 
-
         // 术语预替换：MyMemory 会把 agent 译成"代理/客服"、repo 译成"回购"，
         // 先写入固定中文译法再翻译，可得到正确结果。
-        var query = Glossary.Apply(
-            text.Length > MaxQueryLength ? text[..MaxQueryLength] : text
-        );
+        var query = Glossary.Apply(text.Length > MaxQueryLength ? text[..MaxQueryLength] : text);
 
         var myMemoryQuery = new MyMemoryQuery
         {

@@ -159,7 +159,12 @@ public static class CollectEndpoints
         if (fetched.Products.Count > 0)
             return
             [
-                .. fetched.Products.Select(p => new CandidateItem(p.Url, p.Name, p.Description, false))
+                .. fetched.Products.Select(p => new CandidateItem(
+                    p.Url,
+                    p.Name,
+                    p.Description,
+                    false
+                )),
             ];
 
         var links = fetched.Links;

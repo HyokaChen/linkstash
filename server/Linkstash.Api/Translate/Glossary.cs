@@ -36,7 +36,6 @@ public static class Glossary
         ("issue", "Issue"),
         ("commits", "提交"),
         ("commit", "提交"),
-
         // —— 实测译文正确，固定下来防止回退 ——
         ("prompts", "提示词"),
         ("prompt", "提示词"),

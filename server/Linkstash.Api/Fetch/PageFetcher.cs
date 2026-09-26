@@ -80,7 +80,8 @@ public class PageFetcher(HttpClient http)
                 ExtractGitHubAbout(doc),
                 doc.QuerySelector("meta[property='og:description']")?.GetAttribute("content"),
                 doc.QuerySelector("meta[name='description']")?.GetAttribute("content")
-            )?.Trim(),
+            )
+                ?.Trim(),
             url
         );
 
@@ -101,12 +102,19 @@ public class PageFetcher(HttpClient http)
     {
         foreach (var heading in doc.QuerySelectorAll("h2"))
         {
-            if (!string.Equals(heading.TextContent.Trim(), "About", StringComparison.OrdinalIgnoreCase))
+            if (
+                !string.Equals(
+                    heading.TextContent.Trim(),
+                    "About",
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
                 continue;
-            var text = heading.ParentElement?
-                .QuerySelector("p[class*='description']")?
-                .TextContent.Trim();
-            if (!string.IsNullOrWhiteSpace(text)) return text;
+            var text = heading
+                .ParentElement?.QuerySelector("p[class*='description']")
+                ?.TextContent.Trim();
+            if (!string.IsNullOrWhiteSpace(text))
+                return text;
         }
 
         var byPrefix = doc.QuerySelector("p[class*='SidebarAbout-module__description']");
@@ -120,10 +128,12 @@ public class PageFetcher(HttpClient http)
     /// </summary>
     private static string? CleanDescription(string? description, string pageUrl)
     {
-        if (string.IsNullOrWhiteSpace(description)) return description;
+        if (string.IsNullOrWhiteSpace(description))
+            return description;
 
         var segments = new Uri(pageUrl).AbsolutePath.Trim('/').Split('/');
-        if (segments.Length < 2 || string.IsNullOrWhiteSpace(segments[^1])) return description;
+        if (segments.Length < 2 || string.IsNullOrWhiteSpace(segments[^1]))
+            return description;
 
         var suffix = $" - {segments[^2]}/{segments[^1]}";
         var trimmed = description.EndsWith(suffix, StringComparison.Ordinal)
@@ -139,7 +149,8 @@ public class PageFetcher(HttpClient http)
     /// </summary>
     private static string? CleanTitle(string? title, string pageUrl)
     {
-        if (string.IsNullOrWhiteSpace(title)) return title;
+        if (string.IsNullOrWhiteSpace(title))
+            return title;
 
         var host = new Uri(pageUrl).Host;
         var value = title.Trim();
@@ -149,7 +160,9 @@ public class PageFetcher(HttpClient http)
             if (value.StartsWith("GitHub - ", StringComparison.OrdinalIgnoreCase))
                 value = value["GitHub - ".Length..].Trim();
 
-            value = Regex.Replace(value, @"\s*[|·]\s*GitHub\s*$", "", RegexOptions.IgnoreCase).Trim();
+            value = Regex
+                .Replace(value, @"\s*[|·]\s*GitHub\s*$", "", RegexOptions.IgnoreCase)
+                .Trim();
 
             var segments = new Uri(pageUrl).AbsolutePath.Trim('/').Split('/');
             if (segments.Length >= 2)
@@ -170,15 +183,23 @@ public class PageFetcher(HttpClient http)
     /// <summary>非内容主机：图片 CDN、统计、微信自身资源，提取时忽略。</summary>
     private static readonly string[] IgnoredHostPatterns =
     [
-        "mmbiz.qpic.cn", "res.wx.qq.com", "mp.weixin.qq.com", "wx.qq.com",
-        "captcha.gtimg.com", "google-analytics.com", "googletagmanager.com",
-        "doubleclick.net", "gstatic.com", "githubassets.com", "githubusercontent.com",
+        "mmbiz.qpic.cn",
+        "res.wx.qq.com",
+        "mp.weixin.qq.com",
+        "wx.qq.com",
+        "captcha.gtimg.com",
+        "google-analytics.com",
+        "googletagmanager.com",
+        "doubleclick.net",
+        "gstatic.com",
+        "githubassets.com",
+        "githubusercontent.com",
     ];
 
-    private static bool IsContentUrl(string host, string pageHost)
-        => host != pageHost
-           && !IgnoredHostPatterns.Any(p => host.EndsWith(p, StringComparison.OrdinalIgnoreCase))
-           && !host.StartsWith("cdn.", StringComparison.OrdinalIgnoreCase);
+    private static bool IsContentUrl(string host, string pageHost) =>
+        host != pageHost
+        && !IgnoredHostPatterns.Any(p => host.EndsWith(p, StringComparison.OrdinalIgnoreCase))
+        && !host.StartsWith("cdn.", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 提取外链。两种来源都要覆盖：
@@ -195,13 +216,23 @@ public class PageFetcher(HttpClient http)
 
         bool TryAdd(string rawUrl, string? anchorText)
         {
-            if (string.IsNullOrWhiteSpace(rawUrl)) return false;
+            if (string.IsNullOrWhiteSpace(rawUrl))
+                return false;
             rawUrl = rawUrl.Trim().TrimEnd('.', ',', '，', '。', ';', '；', ')');
-            if (!Uri.TryCreate(rawUrl, UriKind.Absolute, out var u)) return false;
-            if (u.Scheme != Uri.UriSchemeHttp && u.Scheme != Uri.UriSchemeHttps) return false;
-            if (!IsContentUrl(u.Host, pageHost)) return false;
-            if (!seen.Add(u.ToString())) return false;
-            result.Add(new LinkRef(u.ToString(), string.IsNullOrWhiteSpace(anchorText) ? null : anchorText.Trim()));
+            if (!Uri.TryCreate(rawUrl, UriKind.Absolute, out var u))
+                return false;
+            if (u.Scheme != Uri.UriSchemeHttp && u.Scheme != Uri.UriSchemeHttps)
+                return false;
+            if (!IsContentUrl(u.Host, pageHost))
+                return false;
+            if (!seen.Add(u.ToString()))
+                return false;
+            result.Add(
+                new LinkRef(
+                    u.ToString(),
+                    string.IsNullOrWhiteSpace(anchorText) ? null : anchorText.Trim()
+                )
+            );
             return true;
         }
 
@@ -218,7 +249,8 @@ public class PageFetcher(HttpClient http)
             foreach (var node in contentRoot.QuerySelectorAll("span, p, div, li, td, section"))
             {
                 var text = node.TextContent;
-                if (string.IsNullOrEmpty(text) || text.Length > 500) continue;
+                if (string.IsNullOrEmpty(text) || text.Length > 500)
+                    continue;
                 // 仅当整段文本本身就是 URL 时才取，避免长段落里挖碎片
                 if (Uri.TryCreate(text.Trim(), UriKind.Absolute, out _))
                     TryAdd(text, null);
@@ -236,23 +268,30 @@ public class PageFetcher(HttpClient http)
     /// </summary>
     private static List<ProductRef> ExtractProducts(AngleSharp.Dom.IDocument doc)
     {
-        var root = doc.GetElementById("js_content")
+        var root =
+            doc.GetElementById("js_content")
             ?? doc.QuerySelector("article")
             ?? doc.QuerySelector("main")
             ?? doc.Body;
-        if (root is null) return [];
+        if (root is null)
+            return [];
 
         // 先去 script 再取文本，保证标签按阅读顺序出现
         var text = root.TextContent.Replace('\u00a0', ' ');
         text = System.Text.RegularExpressions.Regex.Replace(
-            System.Text.RegularExpressions.Regex.Replace(text, @"<[^>]*>", " "), @"\s+", " ");
+            System.Text.RegularExpressions.Regex.Replace(text, @"<[^>]*>", " "),
+            @"\s+",
+            " "
+        );
 
         var blockRe = new System.Text.RegularExpressions.Regex(
             @"产品名称\s*[:：]\s*(?<name>.{1,80}?)\s*产品作者\s*[:：]\s*(?<author>.{0,60}?)\s*产品介绍\s*[:：]\s*(?<desc>.+?)(?=\s*\d+\s*[.、]\s*Show\s*HN|\s*产品名称\s*[:：]|\s*关键词|$)",
-            System.Text.RegularExpressions.RegexOptions.Singleline);
+            System.Text.RegularExpressions.RegexOptions.Singleline
+        );
         var urlRe = new System.Text.RegularExpressions.Regex(
             @"URL\s*[:：]\s*(?<url>https?://[^\s\[\]（）()]+)",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+        );
 
         var products = new List<ProductRef>();
         var seen = new HashSet<string>();
@@ -261,15 +300,18 @@ public class PageFetcher(HttpClient http)
         {
             var name = (m.Groups["name"].Value ?? "").Trim();
             var desc = (m.Groups["desc"].Value ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(desc)) continue;
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(desc))
+                continue;
 
             // 向前回溯最近的 URL 标签作为该条目的链接
             var start = Math.Max(0, m.Index - 1500);
             var before = text[start..m.Index];
             var urls = urlRe.Matches(before);
-            if (urls.Count == 0) continue;
+            if (urls.Count == 0)
+                continue;
             var url = urls[^1].Groups["url"].Value.TrimEnd('.', '。', ',', '，');
-            if (!seen.Add(url)) continue;
+            if (!seen.Add(url))
+                continue;
 
             products.Add(new ProductRef(name, url, desc));
         }

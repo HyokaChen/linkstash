@@ -7,18 +7,30 @@ public class GlossaryTests
 {
     [Theory]
     // 实测 MyMemory en→zh-CN 的错译，术语表需纠正
-    [InlineData("Agent skills that fact-check the internet", "智能体技能 that fact-check the internet")]
-    [InlineData("A tool for building AI agent workflows", "A tool for building AI 智能体 workflows")]
+    [InlineData(
+        "Agent skills that fact-check the internet",
+        "智能体技能 that fact-check the internet"
+    )]
+    [InlineData(
+        "A tool for building AI agent workflows",
+        "A tool for building AI 智能体 workflows"
+    )]
     [InlineData("Manage repo issues and commit history", "Manage 仓库 Issue and 提交 history")]
     [InlineData("Open a pull request and review code", "Open a Pull Request and review code")]
     [InlineData("A unified API for every LLM provider", "A unified API for every LLM provider")]
-    [InlineData("An open source self-hosted knowledge base", "An open source self-hosted knowledge base")]
+    [InlineData(
+        "An open source self-hosted knowledge base",
+        "An open source self-hosted knowledge base"
+    )]
     public void Apply_ReplacesTerm(string input, string expected) =>
         Assert.Equal(expected, Glossary.Apply(input));
 
     [Theory]
     // 词边界：不能误伤包含目标词的更长单词
-    [InlineData("A multi-agent reinforcement learning framework", "A 多智能体 reinforcement learning 框架")]
+    [InlineData(
+        "A multi-agent reinforcement learning framework",
+        "A 多智能体 reinforcement learning 框架"
+    )]
     [InlineData("An agent-based modelling toolkit", "An 基于智能体的 modelling 工具包")]
     [InlineData("The reagent was stored in a bottle", "The reagent was stored in a bottle")]
     // repository 是 repo 的完整拼写，同义替换，不属于误伤
@@ -42,7 +54,8 @@ public class GlossaryTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void Apply_EmptyInput_ReturnedAsIs(string input) => Assert.Equal(input, Glossary.Apply(input));
+    public void Apply_EmptyInput_ReturnedAsIs(string input) =>
+        Assert.Equal(input, Glossary.Apply(input));
 
     [Fact]
     public void Apply_NoTerms_LeavesTextUnchanged() =>
