@@ -1,0 +1,21 @@
+# .NET build output
+bin/
+obj/
+publish/
+*.user
+
+# SQLite database (运行时数据，不应进版本库)
+*.db
+*.db-shm
+*.db-wal
+
+# 前端构建产物已输出到 server/Linkstash.Api/wwwroot，属生成目录
+server/Linkstash.Api/wwwroot/
+
+# macOS
+.DS_Store
+
+# 环境覆盖（含密码/密钥，勿提交）
+appsettings.Production.json
+appsettings.Local.json
+.env
