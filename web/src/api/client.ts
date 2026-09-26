@@ -17,6 +17,7 @@ export interface CollectionItem {
 
 export interface CollectResult extends CollectionItem {
   markdown: string
+  itemCount: number
 }
 
 export interface CollectionsPage {

@@ -17,5 +17,6 @@ public record CollectResult(
     string Translation,
     bool IsFallbackTitle,
     string CreatedAt,
-    string Markdown
+    string Markdown,
+    int ItemCount
 );

@@ -28,7 +28,9 @@ public static class CollectEndpoints
 
                     try
                     {
-                        var fetched = await fetcher.FetchAsync(req.Url, false);
+                        // 始终解析结构化条目：单页收藏顺带告诉前端"本页含 N 个条目"，
+                        // 复用同一份已抓取的 DOM，不产生额外请求。
+                        var fetched = await fetcher.FetchAsync(req.Url, true);
 
                         // 描述优先：og:description/meta description 常是真正的简介
                         // （GitHub 仓库简介即在此），比标题信息量大；缺失时退回标题。
@@ -52,7 +54,8 @@ public static class CollectEndpoints
                                 item.Translation,
                                 item.IsFallbackTitle,
                                 item.CreatedAt,
-                                $"[{item.Title}]({item.Url}) => {item.Translation}"
+                                $"[{item.Title}]({item.Url}) => {item.Translation}",
+                                fetched.Products.Count
                             )
                         );
                     }
