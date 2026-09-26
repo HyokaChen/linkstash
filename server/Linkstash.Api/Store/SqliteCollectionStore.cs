@@ -31,7 +31,13 @@ public class SqliteCollectionStore : ICollectionStore
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    public async Task<CollectionItem> AddAsync(string url, string title, string translation, string? sourceUrl, bool isFallbackTitle)
+    public async Task<CollectionItem> AddAsync(
+        string url,
+        string title,
+        string translation,
+        string? sourceUrl,
+        bool isFallbackTitle
+    )
     {
         var item = new CollectionItem(
             Guid.NewGuid().ToString("N"),
@@ -40,7 +46,8 @@ public class SqliteCollectionStore : ICollectionStore
             translation,
             sourceUrl,
             isFallbackTitle,
-            DateTimeOffset.UtcNow.ToString("o"));
+            DateTimeOffset.UtcNow.ToString("o")
+        );
 
         await using var conn = new SqliteConnection(_connectionString);
         await conn.OpenAsync();
@@ -63,7 +70,8 @@ public class SqliteCollectionStore : ICollectionStore
     public async Task<int> AddBatchAsync(IEnumerable<CollectionItem> items)
     {
         var list = items.ToList();
-        if (list.Count == 0) return 0;
+        if (list.Count == 0)
+            return 0;
 
         await using var conn = new SqliteConnection(_connectionString);
         await conn.OpenAsync();
@@ -75,24 +83,43 @@ public class SqliteCollectionStore : ICollectionStore
             INSERT INTO collections (id, url, title, translation, source_url, is_fallback_title, created_at)
             VALUES (@id, @url, @title, @translation, @sourceUrl, @isFallbackTitle, @createdAt);
             """;
-        var pId = cmd.CreateParameter(); pId.ParameterName = "@id";
-        var pUrl = cmd.CreateParameter(); pUrl.ParameterName = "@url";
-        var pTitle = cmd.CreateParameter(); pTitle.ParameterName = "@title";
-        var pTrans = cmd.CreateParameter(); pTrans.ParameterName = "@translation";
-        var pSrc = cmd.CreateParameter(); pSrc.ParameterName = "@sourceUrl";
-        var pFb = cmd.CreateParameter(); pFb.ParameterName = "@isFallbackTitle";
-        var pCreated = cmd.CreateParameter(); pCreated.ParameterName = "@createdAt";
-        cmd.Parameters.Add(pId); cmd.Parameters.Add(pUrl); cmd.Parameters.Add(pTitle);
-        cmd.Parameters.Add(pTrans); cmd.Parameters.Add(pSrc); cmd.Parameters.Add(pFb);
+        var pId = cmd.CreateParameter();
+        pId.ParameterName = "@id";
+        var pUrl = cmd.CreateParameter();
+        pUrl.ParameterName = "@url";
+        var pTitle = cmd.CreateParameter();
+        pTitle.ParameterName = "@title";
+        var pTrans = cmd.CreateParameter();
+        pTrans.ParameterName = "@translation";
+        var pSrc = cmd.CreateParameter();
+        pSrc.ParameterName = "@sourceUrl";
+        var pFb = cmd.CreateParameter();
+        pFb.ParameterName = "@isFallbackTitle";
+        var pCreated = cmd.CreateParameter();
+        pCreated.ParameterName = "@createdAt";
+        cmd.Parameters.Add(pId);
+        cmd.Parameters.Add(pUrl);
+        cmd.Parameters.Add(pTitle);
+        cmd.Parameters.Add(pTrans);
+        cmd.Parameters.Add(pSrc);
+        cmd.Parameters.Add(pFb);
         cmd.Parameters.Add(pCreated);
 
         foreach (var raw in list)
         {
-            var item = string.IsNullOrEmpty(raw.Id)
-                ? raw with { Id = Guid.NewGuid().ToString("N"), CreatedAt = DateTimeOffset.UtcNow.ToString("o") }
+            var item =
+                string.IsNullOrEmpty(raw.Id)
+                    ? raw with
+                    {
+                        Id = Guid.NewGuid().ToString("N"),
+                        CreatedAt = DateTimeOffset.UtcNow.ToString("o"),
+                    }
                 : string.IsNullOrEmpty(raw.CreatedAt)
-                    ? raw with { CreatedAt = DateTimeOffset.UtcNow.ToString("o") }
-                    : raw;
+                    ? raw with
+                    {
+                        CreatedAt = DateTimeOffset.UtcNow.ToString("o"),
+                    }
+                : raw;
             pId.Value = item.Id;
             pUrl.Value = item.Url;
             pTitle.Value = item.Title;
@@ -107,7 +134,11 @@ public class SqliteCollectionStore : ICollectionStore
         return list.Count;
     }
 
-    public async Task<(List<CollectionItem> Items, int Total)> ListAsync(int page, int pageSize, string? search)
+    public async Task<(List<CollectionItem> Items, int Total)> ListAsync(
+        int page,
+        int pageSize,
+        string? search
+    )
     {
         var where = "";
         var hasSearch = !string.IsNullOrWhiteSpace(search);
@@ -120,9 +151,11 @@ public class SqliteCollectionStore : ICollectionStore
         await using (var countCmd = conn.CreateCommand())
         {
             countCmd.CommandText = $"SELECT COUNT(*) FROM collections {where};";
-            if (hasSearch) countCmd.Parameters.AddWithValue("@s", $"%{search}%");
+            if (hasSearch)
+                countCmd.Parameters.AddWithValue("@s", $"%{search}%");
             var total = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
-            if (total == 0) return ([], 0);
+            if (total == 0)
+                return ([], 0);
 
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = $"""
@@ -131,7 +164,8 @@ public class SqliteCollectionStore : ICollectionStore
                 ORDER BY created_at DESC
                 LIMIT @limit OFFSET @offset;
                 """;
-            if (hasSearch) cmd.Parameters.AddWithValue("@s", $"%{search}%");
+            if (hasSearch)
+                cmd.Parameters.AddWithValue("@s", $"%{search}%");
             cmd.Parameters.AddWithValue("@limit", pageSize);
             cmd.Parameters.AddWithValue("@offset", (page - 1) * pageSize);
 
@@ -139,14 +173,17 @@ public class SqliteCollectionStore : ICollectionStore
             await using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                items.Add(new CollectionItem(
-                    reader.GetString(0),
-                    reader.GetString(1),
-                    reader.GetString(2),
-                    reader.GetString(3),
-                    reader.IsDBNull(4) ? null : reader.GetString(4),
-                    reader.GetInt64(5) != 0,
-                    reader.GetString(6)));
+                items.Add(
+                    new CollectionItem(
+                        reader.GetString(0),
+                        reader.GetString(1),
+                        reader.GetString(2),
+                        reader.GetString(3),
+                        reader.IsDBNull(4) ? null : reader.GetString(4),
+                        reader.GetInt64(5) != 0,
+                        reader.GetString(6)
+                    )
+                );
             }
             return (items, total);
         }

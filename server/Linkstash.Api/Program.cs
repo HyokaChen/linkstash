@@ -1,9 +1,9 @@
+using System.Net;
 using Linkstash.Api.Auth;
 using Linkstash.Api.Collect;
 using Linkstash.Api.Fetch;
 using Linkstash.Api.Store;
 using Linkstash.Api.Translate;
-using System.Net;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.FileProviders;
 using Refit;
@@ -24,28 +24,38 @@ builder.Services.AddSingleton<ICollectionStore>(store);
 //   避免系统代理设置意外改变翻译链路行为。
 var proxy = builder.Configuration.GetSection("Proxy").Get<ProxyOptions>() ?? new ProxyOptions();
 var fetchProxyStr = string.IsNullOrWhiteSpace(proxy.FetchUrl) ? "" : proxy.FetchUrl;
-HttpMessageHandler FetchHandler() => string.IsNullOrWhiteSpace(fetchProxyStr)
-    ? new HttpClientHandler()
-    : new HttpClientHandler { Proxy = new WebProxy(fetchProxyStr), UseProxy = true };
+HttpMessageHandler FetchHandler() =>
+    string.IsNullOrWhiteSpace(fetchProxyStr)
+        ? new HttpClientHandler()
+        : new HttpClientHandler { Proxy = new WebProxy(fetchProxyStr), UseProxy = true };
 
-builder.Services.AddHttpClient<PageFetcher>(c =>
-{
-    c.Timeout = TimeSpan.FromSeconds(30);
-    c.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (linkstash/1.0)");
-}).ConfigurePrimaryHttpMessageHandler(FetchHandler);
+builder
+    .Services.AddHttpClient<PageFetcher>(c =>
+    {
+        c.Timeout = TimeSpan.FromSeconds(30);
+        c.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (linkstash/1.0)");
+    })
+    .ConfigurePrimaryHttpMessageHandler(FetchHandler);
 
-builder.Services.AddHttpClient<IMyMemoryApi>(c => c.BaseAddress = new Uri("https://api.mymemory.translated.net"))
+builder
+    .Services.AddHttpClient<IMyMemoryApi>(c =>
+        c.BaseAddress = new Uri("https://api.mymemory.translated.net")
+    )
     .AddTypedClient(c => RestService.For<IMyMemoryApi>(c));
-var translateOptions = builder.Configuration.GetSection("Translate").Get<TranslateOptions>() ?? new TranslateOptions();
+var translateOptions =
+    builder.Configuration.GetSection("Translate").Get<TranslateOptions>() ?? new TranslateOptions();
 builder.Services.AddSingleton(translateOptions);
 builder.Services.AddScoped<TranslateService>();
 
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+builder
+    .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o =>
     {
         o.Cookie.Name = "linkstash_auth";
         o.LoginPath = "/api/auth/login";
-        o.Cookie.SecurePolicy = auth.CookieSecure ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
+        o.Cookie.SecurePolicy = auth.CookieSecure
+            ? CookieSecurePolicy.Always
+            : CookieSecurePolicy.SameAsRequest;
         o.Events.OnRedirectToLogin = ctx =>
         {
             ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -56,11 +66,14 @@ builder.Services.AddAuthorization();
 
 if (builder.Environment.IsDevelopment())
 {
-    builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-        p.WithOrigins("http://localhost:5173")
-         .AllowAnyHeader()
-         .AllowAnyMethod()
-         .AllowCredentials()));
+    builder.Services.AddCors(o =>
+        o.AddDefaultPolicy(p =>
+            p.WithOrigins("http://localhost:5173")
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials()
+        )
+    );
 }
 
 var app = builder.Build();
@@ -80,10 +93,7 @@ var wwwroot = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
 if (Directory.Exists(wwwroot))
 {
     app.UseDefaultFiles();
-    app.UseStaticFiles(new StaticFileOptions
-    {
-        FileProvider = new PhysicalFileProvider(wwwroot)
-    });
+    app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(wwwroot) });
     app.MapFallbackToFile("index.html");
 }
 

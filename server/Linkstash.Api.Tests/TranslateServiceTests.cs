@@ -12,25 +12,35 @@ public class TranslateServiceTests
     private static TranslateService SutForResponse(string response, string email = "")
     {
         var apiMock = new Mock<IMyMemoryApi>();
-        apiMock.Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
-               .ReturnsAsync(response);
-        return new TranslateService(apiMock.Object, Options(email), NullLogger<TranslateService>.Instance);
+        apiMock.Setup(a => a.Get(It.IsAny<MyMemoryQuery>())).ReturnsAsync(response);
+        return new TranslateService(
+            apiMock.Object,
+            Options(email),
+            NullLogger<TranslateService>.Instance
+        );
     }
 
     private static TranslateService SutThrowing()
     {
         var apiMock = new Mock<IMyMemoryApi>();
-        apiMock.Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
-               .ThrowsAsync(new HttpRequestException("network down"));
-        return new TranslateService(apiMock.Object, Options(), NullLogger<TranslateService>.Instance);
+        apiMock
+            .Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
+            .ThrowsAsync(new HttpRequestException("network down"));
+        return new TranslateService(
+            apiMock.Object,
+            Options(),
+            NullLogger<TranslateService>.Instance
+        );
     }
 
     [Fact]
     public async Task TranslateAsync_ValidResponse_ReturnsTranslation()
     {
-        var sut = SutForResponse("""
+        var sut = SutForResponse(
+            """
             {"responseData":{"translatedText":"示例域","match":0.85},"responseStatus":200,"quotaFinished":false}
-            """);
+            """
+        );
         Assert.Equal("示例域", await sut.TranslateAsync("Example Domain"));
     }
 
@@ -39,11 +49,18 @@ public class TranslateServiceTests
     {
         MyMemoryQuery? captured = null;
         var apiMock = new Mock<IMyMemoryApi>();
-        apiMock.Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
-               .Callback<MyMemoryQuery>(q => captured = q)
-               .ReturnsAsync("""{"responseData":{"translatedText":"构建个人知识库的指南"},"responseStatus":200,"quotaFinished":false}""");
+        apiMock
+            .Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
+            .Callback<MyMemoryQuery>(q => captured = q)
+            .ReturnsAsync(
+                """{"responseData":{"translatedText":"构建个人知识库的指南"},"responseStatus":200,"quotaFinished":false}"""
+            );
 
-        var sut = new TranslateService(apiMock.Object, Options(), NullLogger<TranslateService>.Instance);
+        var sut = new TranslateService(
+            apiMock.Object,
+            Options(),
+            NullLogger<TranslateService>.Instance
+        );
         var result = await sut.TranslateAsync("A guide to building a personal knowledge base");
 
         Assert.Equal("构建个人知识库的指南", result);
@@ -55,11 +72,18 @@ public class TranslateServiceTests
     {
         MyMemoryQuery? captured = null;
         var apiMock = new Mock<IMyMemoryApi>();
-        apiMock.Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
-               .Callback<MyMemoryQuery>(q => captured = q)
-               .ReturnsAsync("""{"responseData":{"translatedText":"测试文章标题"},"responseStatus":200,"quotaFinished":false}""");
+        apiMock
+            .Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
+            .Callback<MyMemoryQuery>(q => captured = q)
+            .ReturnsAsync(
+                """{"responseData":{"translatedText":"测试文章标题"},"responseStatus":200,"quotaFinished":false}"""
+            );
 
-        var sut = new TranslateService(apiMock.Object, Options(), NullLogger<TranslateService>.Instance);
+        var sut = new TranslateService(
+            apiMock.Object,
+            Options(),
+            NullLogger<TranslateService>.Instance
+        );
         var result = await sut.TranslateAsync("日本語のテスト記事");
 
         Assert.Equal("测试文章标题", result);
@@ -70,10 +94,15 @@ public class TranslateServiceTests
     public async Task TranslateAsync_ChineseTitle_SkipsApiAndReturnsOriginal()
     {
         var apiMock = new Mock<IMyMemoryApi>();
-        apiMock.Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
-               .ThrowsAsync(new InvalidOperationException("API must not be called for Chinese input"));
+        apiMock
+            .Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
+            .ThrowsAsync(new InvalidOperationException("API must not be called for Chinese input"));
 
-        var sut = new TranslateService(apiMock.Object, Options(), NullLogger<TranslateService>.Instance);
+        var sut = new TranslateService(
+            apiMock.Object,
+            Options(),
+            NullLogger<TranslateService>.Instance
+        );
         Assert.Equal("中文标题", await sut.TranslateAsync("中文标题"));
     }
 
@@ -82,11 +111,18 @@ public class TranslateServiceTests
     {
         MyMemoryQuery? captured = null;
         var apiMock = new Mock<IMyMemoryApi>();
-        apiMock.Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
-               .Callback<MyMemoryQuery>(q => captured = q)
-               .ReturnsAsync("""{"responseData":{"translatedText":"截断后的译文"},"responseStatus":200,"quotaFinished":false}""");
+        apiMock
+            .Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
+            .Callback<MyMemoryQuery>(q => captured = q)
+            .ReturnsAsync(
+                """{"responseData":{"translatedText":"截断后的译文"},"responseStatus":200,"quotaFinished":false}"""
+            );
 
-        var sut = new TranslateService(apiMock.Object, Options(), NullLogger<TranslateService>.Instance);
+        var sut = new TranslateService(
+            apiMock.Object,
+            Options(),
+            NullLogger<TranslateService>.Instance
+        );
         var longTitle = new string('A', 900);
         var result = await sut.TranslateAsync(longTitle);
 
@@ -97,7 +133,9 @@ public class TranslateServiceTests
     [Fact]
     public async Task TranslateAsync_QuotaExhausted_ReturnsOriginalWithFailureMarker()
     {
-        var sut = SutForResponse("""{"responseStatus":200,"quotaFinished":true,"responseData":{"translatedText":""}}""");
+        var sut = SutForResponse(
+            """{"responseStatus":200,"quotaFinished":true,"responseData":{"translatedText":""}}"""
+        );
         var result = await sut.TranslateAsync("Example Domain");
         Assert.StartsWith("(翻译失败)", result);
     }
@@ -105,7 +143,9 @@ public class TranslateServiceTests
     [Fact]
     public async Task TranslateAsync_ApiErrorStatus_ReturnsOriginalWithFailureMarker()
     {
-        var sut = SutForResponse("""{"responseStatus":403,"responseDetails":"QUERY LENGTH LIMIT EXCEEDED"}""");
+        var sut = SutForResponse(
+            """{"responseStatus":403,"responseDetails":"QUERY LENGTH LIMIT EXCEEDED"}"""
+        );
         var result = await sut.TranslateAsync("Example Domain");
         Assert.StartsWith("(翻译失败)", result);
     }
@@ -132,12 +172,18 @@ public class TranslateServiceTests
     {
         MyMemoryQuery? captured = null;
         var apiMock = new Mock<IMyMemoryApi>();
-        apiMock.Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
-               .Callback<MyMemoryQuery>(q => captured = q)
-               .ReturnsAsync("""{"responseData":{"translatedText":"示例域"},"responseStatus":200,"quotaFinished":false}""");
+        apiMock
+            .Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
+            .Callback<MyMemoryQuery>(q => captured = q)
+            .ReturnsAsync(
+                """{"responseData":{"translatedText":"示例域"},"responseStatus":200,"quotaFinished":false}"""
+            );
 
         var sut = new TranslateService(
-            apiMock.Object, Options("chen19941018@live.com"), NullLogger<TranslateService>.Instance);
+            apiMock.Object,
+            Options("chen19941018@live.com"),
+            NullLogger<TranslateService>.Instance
+        );
         await sut.TranslateAsync("Example Domain");
 
         Assert.Equal("chen19941018@live.com", captured!.ContactEmail);
@@ -148,11 +194,18 @@ public class TranslateServiceTests
     {
         MyMemoryQuery? captured = null;
         var apiMock = new Mock<IMyMemoryApi>();
-        apiMock.Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
-               .Callback<MyMemoryQuery>(q => captured = q)
-               .ReturnsAsync("""{"responseData":{"translatedText":"示例域"},"responseStatus":200,"quotaFinished":false}""");
+        apiMock
+            .Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
+            .Callback<MyMemoryQuery>(q => captured = q)
+            .ReturnsAsync(
+                """{"responseData":{"translatedText":"示例域"},"responseStatus":200,"quotaFinished":false}"""
+            );
 
-        var sut = new TranslateService(apiMock.Object, Options(), NullLogger<TranslateService>.Instance);
+        var sut = new TranslateService(
+            apiMock.Object,
+            Options(),
+            NullLogger<TranslateService>.Instance
+        );
         await sut.TranslateAsync("Example Domain");
 
         Assert.Null(captured!.ContactEmail);
@@ -163,15 +216,21 @@ public class TranslateServiceTests
     {
         var calls = 0;
         var apiMock = new Mock<IMyMemoryApi>();
-        apiMock.Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
-               .ReturnsAsync(() =>
-               {
-                   calls++;
-                   if (calls < 2) throw new IOException("unexpected EOF");
-                   return """{"responseData":{"translatedText":"示例域"},"responseStatus":200,"quotaFinished":false}""";
-               });
+        apiMock
+            .Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
+            .ReturnsAsync(() =>
+            {
+                calls++;
+                if (calls < 2)
+                    throw new IOException("unexpected EOF");
+                return """{"responseData":{"translatedText":"示例域"},"responseStatus":200,"quotaFinished":false}""";
+            });
 
-        var sut = new TranslateService(apiMock.Object, Options(), NullLogger<TranslateService>.Instance);
+        var sut = new TranslateService(
+            apiMock.Object,
+            Options(),
+            NullLogger<TranslateService>.Instance
+        );
         var result = await sut.TranslateAsync("Example Domain");
 
         Assert.Equal("示例域", result);
@@ -183,11 +242,16 @@ public class TranslateServiceTests
     {
         var calls = 0;
         var apiMock = new Mock<IMyMemoryApi>();
-        apiMock.Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
-               .Callback(() => calls++)
-               .ThrowsAsync(new IOException("unexpected EOF"));
+        apiMock
+            .Setup(a => a.Get(It.IsAny<MyMemoryQuery>()))
+            .Callback(() => calls++)
+            .ThrowsAsync(new IOException("unexpected EOF"));
 
-        var sut = new TranslateService(apiMock.Object, Options(), NullLogger<TranslateService>.Instance);
+        var sut = new TranslateService(
+            apiMock.Object,
+            Options(),
+            NullLogger<TranslateService>.Instance
+        );
         var result = await sut.TranslateAsync("Example Domain");
 
         Assert.StartsWith("(翻译失败)", result);

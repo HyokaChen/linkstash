@@ -13,7 +13,11 @@ namespace Linkstash.Api.Translate;
 ///   langpair 不支持 auto/aut，必须显式源语言，否则 403。
 /// 文档：https://mymemory.translated.net/doc/spec.php
 /// </summary>
-public class TranslateService(IMyMemoryApi api, TranslateOptions options, ILogger<TranslateService> log)
+public class TranslateService(
+    IMyMemoryApi api,
+    TranslateOptions options,
+    ILogger<TranslateService> log
+)
 {
     private const string TargetLang = "zh-CN";
 
@@ -22,7 +26,8 @@ public class TranslateService(IMyMemoryApi api, TranslateOptions options, ILogge
 
     public async Task<string> TranslateAsync(string text)
     {
-        if (string.IsNullOrWhiteSpace(text)) return "";
+        if (string.IsNullOrWhiteSpace(text))
+            return "";
 
         var source = DetectLanguage(text);
         if (source == "zh-CN")
@@ -38,7 +43,9 @@ public class TranslateService(IMyMemoryApi api, TranslateOptions options, ILogge
         {
             Text = query,
             LangPair = $"{source}|{TargetLang}",
-            ContactEmail = string.IsNullOrWhiteSpace(options.ContactEmail) ? null : options.ContactEmail
+            ContactEmail = string.IsNullOrWhiteSpace(options.ContactEmail)
+                ? null
+                : options.ContactEmail,
         };
 
         // 代理链路偶发 SSL EOF / 超时。重试 2 次（指数退避），避免瞬时抖动直接判失败。
@@ -52,8 +59,12 @@ public class TranslateService(IMyMemoryApi api, TranslateOptions options, ILogge
             }
             catch (Exception ex) when (attempt < MaxAttempts && IsTransient(ex))
             {
-                log.LogWarning(ex, "translate attempt {Attempt} failed, retrying: {Text}",
-                    attempt, query[..Math.Min(40, query.Length)]);
+                log.LogWarning(
+                    ex,
+                    "translate attempt {Attempt} failed, retrying: {Text}",
+                    attempt,
+                    query[..Math.Min(40, query.Length)]
+                );
                 await Task.Delay(TimeSpan.FromMilliseconds(300 * attempt));
             }
             catch (Exception ex)
@@ -67,8 +78,8 @@ public class TranslateService(IMyMemoryApi api, TranslateOptions options, ILogge
     private const int MaxAttempts = 3;
 
     /// <summary>仅对瞬时网络故障重试；配额耗尽等确定性失败立即返回。</summary>
-    private static bool IsTransient(Exception ex)
-        => ex is HttpRequestException or TaskCanceledException or IOException;
+    private static bool IsTransient(Exception ex) =>
+        ex is HttpRequestException or TaskCanceledException or IOException;
 
     /// <summary>翻译不可用时的可见标记，避免"未翻译"与"已翻译"无法区分。</summary>
     private static string Failure(string text) => $"(翻译失败) {text}";
@@ -79,7 +90,8 @@ public class TranslateService(IMyMemoryApi api, TranslateOptions options, ILogge
     /// </summary>
     private string? ParseResponse(string raw)
     {
-        if (string.IsNullOrWhiteSpace(raw)) return null;
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
 
         try
         {
@@ -94,18 +106,24 @@ public class TranslateService(IMyMemoryApi api, TranslateOptions options, ILogge
                 return null;
             }
 
-            if (root.TryGetProperty("quotaFinished", out var quota) && quota.ValueKind == JsonValueKind.True)
+            if (
+                root.TryGetProperty("quotaFinished", out var quota)
+                && quota.ValueKind == JsonValueKind.True
+            )
             {
                 log.LogWarning("MyMemory daily quota exhausted (quotaFinished=true)");
                 return null;
             }
 
-            if (root.TryGetProperty("responseData", out var data)
+            if (
+                root.TryGetProperty("responseData", out var data)
                 && data.TryGetProperty("translatedText", out var translated)
-                && translated.ValueKind == JsonValueKind.String)
+                && translated.ValueKind == JsonValueKind.String
+            )
             {
                 var value = translated.GetString();
-                if (!string.IsNullOrWhiteSpace(value)) return value.Trim();
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value.Trim();
             }
 
             return null;
@@ -117,11 +135,13 @@ public class TranslateService(IMyMemoryApi api, TranslateOptions options, ILogge
         }
     }
 
-    private static int? ReadInt(JsonElement root, string name)
-        => root.TryGetProperty(name, out var el) && el.TryGetInt32(out var v) ? v : null;
+    private static int? ReadInt(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var el) && el.TryGetInt32(out var v) ? v : null;
 
-    private static string? ReadString(JsonElement root, string name)
-        => root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String ? el.GetString() : null;
+    private static string? ReadString(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String
+            ? el.GetString()
+            : null;
 
     /// <summary>
     /// 轻量语种识别（MyMemory 不支持 auto 源语言，故本地判定后再请求）。
@@ -129,18 +149,28 @@ public class TranslateService(IMyMemoryApi api, TranslateOptions options, ILogge
     /// </summary>
     private static string DetectLanguage(string text)
     {
-        bool hasKana = false, hasHan = false, hasCyrillic = false, hasLatin = false;
+        bool hasKana = false,
+            hasHan = false,
+            hasCyrillic = false,
+            hasLatin = false;
         foreach (var c in text)
         {
-            if (c is >= '぀' and <= 'ヿ' or '゠' and <= 'ヿ' or 'ㇰ' and <= 'ㇿ' or 'ｦ' and <= 'ﾟ') hasKana = true;
-            else if (c is >= '一' and <= '鿿' or '㐀' and <= '䶿') hasHan = true;
-            else if (c is >= 'Ѐ' and <= 'ӿ') hasCyrillic = true;
-            else if (c is >= 'A' and <= 'z' or 'A' and <= 'Z') hasLatin = true;
+            if (c is >= '぀' and <= 'ヿ' or '゠' and <= 'ヿ' or 'ㇰ' and <= 'ㇿ' or 'ｦ' and <= 'ﾟ')
+                hasKana = true;
+            else if (c is >= '一' and <= '鿿' or '㐀' and <= '䶿')
+                hasHan = true;
+            else if (c is >= 'Ѐ' and <= 'ӿ')
+                hasCyrillic = true;
+            else if (c is >= 'A' and <= 'z' or 'A' and <= 'Z')
+                hasLatin = true;
         }
 
-        if (hasKana) return "ja";
-        if (hasHan) return "zh-CN";
-        if (hasCyrillic) return "ru";
+        if (hasKana)
+            return "ja";
+        if (hasHan)
+            return "zh-CN";
+        if (hasCyrillic)
+            return "ru";
         _ = hasLatin;
         return "en";
     }
