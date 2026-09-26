@@ -6,20 +6,19 @@ import { api, type CandidateItem, type CollectResult } from '@/api/client'
 import UrlInput from '@/components/UrlInput.vue'
 import SavedResult from '@/components/SavedResult.vue'
 import AggregationPreview from '@/components/AggregationPreview.vue'
-import CollectionList from '@/components/CollectionList.vue'
+import TimelineList from '@/components/TimelineList.vue'
 import { Button } from '@/components/ui/button'
 
 const router = useRouter()
 const saved = ref<CollectResult | null>(null)
 const candidates = ref<CandidateItem[] | null>(null)
-const collectionKey = ref(0)
+const listKey = ref(0)
 
 function onCollected(result: CollectResult) {
   saved.value = result
-  collectionKey.value++
+  listKey.value++
 }
 
-/** 展开聚合条目：复用已收藏结果区的上下文，来源页仅用于日志/回溯。 */
 function onExtracted(list: CandidateItem[], _sourceUrl: string) {
   candidates.value = list
 }
@@ -27,7 +26,8 @@ function onExtracted(list: CandidateItem[], _sourceUrl: string) {
 function onBatchSaved(n: number) {
   toast.success(`已收藏 ${n} 条`)
   candidates.value = null
-  collectionKey.value++
+  saved.value = null
+  listKey.value++
 }
 
 async function logout() {
@@ -41,28 +41,34 @@ async function logout() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl space-y-6 px-4 py-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-xl font-semibold">linkstash</h1>
-      <Button variant="ghost" size="sm" @click="logout">退出</Button>
-    </div>
+  <!-- 单列：输入框吸顶，下方时间线滚动加载 -->
+  <div class="mx-auto max-w-2xl">
+    <header
+      class="sticky top-0 z-10 space-y-3 border-b bg-background/85 px-4 py-3 backdrop-blur"
+    >
+      <div class="flex items-center justify-between">
+        <h1 class="text-sm font-semibold">linkstash</h1>
+        <Button variant="ghost" size="xs" @click="logout">退出</Button>
+      </div>
+      <UrlInput @collected="onCollected" />
+    </header>
 
-    <UrlInput @collected="onCollected" />
+    <main class="space-y-4 px-4 py-4">
+      <SavedResult
+        v-if="saved"
+        :result="saved"
+        @extracted="onExtracted"
+        @deleted="saved = null"
+      />
 
-    <SavedResult
-      v-if="saved"
-      :result="saved"
-      @extracted="onExtracted"
-      @deleted="saved = null"
-    />
+      <AggregationPreview
+        v-if="candidates"
+        :candidates="candidates"
+        @saved="onBatchSaved"
+        @close="candidates = null"
+      />
 
-    <AggregationPreview
-      v-if="candidates"
-      :candidates="candidates"
-      @saved="onBatchSaved"
-      @close="candidates = null"
-    />
-
-    <CollectionList :key="collectionKey" />
+      <TimelineList :key="listKey" />
+    </main>
   </div>
 </template>

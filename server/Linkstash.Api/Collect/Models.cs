@@ -18,5 +18,9 @@ public record CollectResult(
     bool IsFallbackTitle,
     string CreatedAt,
     string Markdown,
-    int ItemCount
+    int ItemCount,
+    string Tags
 );
+
+/// <summary>手动改标签请求。tags 传空字符串表示清空。</summary>
+public record TagsRequest(string? Tags);

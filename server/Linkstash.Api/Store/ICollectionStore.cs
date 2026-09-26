@@ -7,7 +7,8 @@ public record CollectionItem(
     string Translation,
     string? SourceUrl,
     bool IsFallbackTitle,
-    string CreatedAt
+    string CreatedAt,
+    string Tags
 );
 
 public interface ICollectionStore
@@ -17,9 +18,20 @@ public interface ICollectionStore
         string title,
         string translation,
         string? sourceUrl,
-        bool isFallbackTitle
+        bool isFallbackTitle,
+        string tags = ""
     );
+
     Task<int> AddBatchAsync(IEnumerable<CollectionItem> items);
-    Task<(List<CollectionItem> Items, int Total)> ListAsync(int page, int pageSize, string? search);
+
+    Task<(List<CollectionItem> Items, int Total)> ListAsync(
+        int page,
+        int pageSize,
+        string? search,
+        string? tag = null
+    );
+
     Task<bool> DeleteAsync(string id);
+
+    Task<CollectionItem?> UpdateTagsAsync(string id, string tags);
 }

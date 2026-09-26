@@ -13,6 +13,7 @@ export interface CollectionItem {
   sourceUrl: string | null
   isFallbackTitle: boolean
   createdAt: string
+  tags: string
 }
 
 export interface CollectResult extends CollectionItem {

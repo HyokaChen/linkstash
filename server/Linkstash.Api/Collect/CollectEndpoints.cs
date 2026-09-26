@@ -44,7 +44,8 @@ public static class CollectEndpoints
                             fetched.Title,
                             translation,
                             null,
-                            fetched.IsFallback
+                            fetched.IsFallback,
+                            Tagger.AutoTag(fetched.Title, translation)
                         );
                         return Results.Json(
                             new CollectResult(
@@ -55,7 +56,8 @@ public static class CollectEndpoints
                                 item.IsFallbackTitle,
                                 item.CreatedAt,
                                 $"[{item.Title}]({item.Url}) => {item.Translation}",
-                                fetched.Products.Count
+                                fetched.Products.Count,
+                                item.Tags
                             )
                         );
                     }
@@ -96,15 +98,21 @@ public static class CollectEndpoints
                 {
                     var items = (req.Items ?? [])
                         .Where(i => !string.IsNullOrWhiteSpace(i.Url))
-                        .Select(i => new CollectionItem(
-                            "",
-                            i.Url,
-                            i.Title ?? "",
-                            i.Translation ?? "",
-                            null,
-                            false,
-                            ""
-                        ));
+                        .Select(i =>
+                        {
+                            var title = i.Title ?? "";
+                            var translation = i.Translation ?? "";
+                            return new CollectionItem(
+                                "",
+                                i.Url,
+                                title,
+                                translation,
+                                null,
+                                false,
+                                "",
+                                Tagger.AutoTag(title, translation)
+                            );
+                        });
                     var saved = await store.AddBatchAsync(items);
                     return Results.Json(new { saved });
                 }
@@ -117,12 +125,13 @@ public static class CollectEndpoints
                     ICollectionStore store,
                     int page = 1,
                     int pageSize = 20,
-                    string? search = null
+                    string? search = null,
+                    string? tag = null
                 ) =>
                 {
                     page = Math.Max(1, page);
                     pageSize = Math.Clamp(pageSize, 1, 100);
-                    var (items, total) = await store.ListAsync(page, pageSize, search);
+                    var (items, total) = await store.ListAsync(page, pageSize, search, tag);
                     return Results.Json(
                         new
                         {
@@ -132,6 +141,26 @@ public static class CollectEndpoints
                             pageSize,
                         }
                     );
+                }
+            )
+            .RequireAuthorization();
+
+        // 可用标签全集，供前端渲染标签选择器
+        app.MapGet("/api/tags", () => Results.Json(new { categories = Store.Tagger.Categories }))
+            .RequireAuthorization();
+
+        // 手动改标签
+        app.MapPut(
+                "/api/collections/{id}/tags",
+                async (string id, TagsRequest req, ICollectionStore store) =>
+                {
+                    var updated = await store.UpdateTagsAsync(
+                        id,
+                        Store.Tagger.Normalize(req.Tags)
+                    );
+                    return updated is null
+                        ? Results.NotFound(new { error = "not found" })
+                        : Results.Json(new { tags = updated.Tags });
                 }
             )
             .RequireAuthorization();
