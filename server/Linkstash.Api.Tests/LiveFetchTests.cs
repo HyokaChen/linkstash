@@ -31,6 +31,30 @@ public class LiveFetchTests(ITestOutputHelper output)
         return new PageFetcher(http);
     }
 
+    /// <summary>
+    /// 代理链路偶发 SSL EOF/超时（实测约 1/3 概率），生产代码已重试，
+    /// 此处同样重试以免把网络抖动误报为回归。
+    /// </summary>
+    private async Task<FetchResult> FetchWithRetry(
+        PageFetcher fetcher,
+        string url,
+        bool extractLinks
+    )
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await fetcher.FetchAsync(url, extractLinks);
+            }
+            catch (Exception ex) when (attempt < 4 && ex is HttpRequestException or TaskCanceledException or IOException)
+            {
+                output.WriteLine($"  [retry {attempt}] {ex.GetType().Name}: {ex.Message}");
+                await Task.Delay(500 * attempt);
+            }
+        }
+    }
+
     private static TranslateService Translator(IMyMemoryApi? api = null) =>
         new(
             api ?? new MyMemoryApiStub(),
@@ -52,7 +76,8 @@ public class LiveFetchTests(ITestOutputHelper output)
         Skip.IfNot(Enabled, "需要网络：设置 LINKSTASH_LIVE_TESTS=1");
         var fetcher = Fetcher(Environment.GetEnvironmentVariable("LINKSTASH_PROXY"));
 
-        var result = await fetcher.FetchAsync(
+        var result = await FetchWithRetry(
+            fetcher,
             "https://mp.weixin.qq.com/s/CWGNv8J2we8K35cFnO7DgQ",
             extractLinks: true
         );
@@ -83,7 +108,8 @@ public class LiveFetchTests(ITestOutputHelper output)
         Skip.IfNot(Enabled, "需要网络：设置 LINKSTASH_LIVE_TESTS=1");
         var fetcher = Fetcher(Environment.GetEnvironmentVariable("LINKSTASH_PROXY"));
 
-        var result = await fetcher.FetchAsync(
+        var result = await FetchWithRetry(
+            fetcher,
             "https://mp.weixin.qq.com/s/CWGNv8J2we8K35cFnO7DgQ",
             extractLinks: true
         );
@@ -98,7 +124,8 @@ public class LiveFetchTests(ITestOutputHelper output)
         Skip.IfNot(Enabled, "需要网络：设置 LINKSTASH_LIVE_TESTS=1");
         var fetcher = Fetcher(Environment.GetEnvironmentVariable("LINKSTASH_PROXY"));
 
-        var result = await fetcher.FetchAsync(
+        var result = await FetchWithRetry(
+            fetcher,
             "https://github.com/SerhiiKorniienko/bullshit-detector",
             extractLinks: false
         );
@@ -107,9 +134,31 @@ public class LiveFetchTests(ITestOutputHelper output)
         output.WriteLine($"description = {result.Description}");
 
         Assert.False(result.IsFallback);
+        Assert.Equal("SerhiiKorniienko/bullshit-detector", result.Title);
         Assert.NotNull(result.Description);
-        Assert.Contains("fact-check the internet", result.Description);
-        // GitHub 的 og:description 尾部会追加 " - owner/repo"，需要截断
-        Assert.False(result.Description.EndsWith("bullshit-de"), "og:description 尾部应截断 owner/repo 后缀");
+        Assert.Equal(
+            "Agent skills that fact-check the internet: claim-by-claim verification with sources "
+                + "and a 0-10 BS score for any YouTube video, article, tweet, or PDF",
+            result.Description
+        );
+        // 取 About 栏而非 og:description：后者尾部带 " - owner/repo"
+        Assert.DoesNotContain("SerhiiKorniienko", result.Description);
+    }
+
+    [SkippableFact]
+    public async Task GitHubRepo_TitleIsOwnerSlashRepo()
+    {
+        Skip.IfNot(Enabled, "需要网络：设置 LINKSTASH_LIVE_TESTS=1");
+        var fetcher = Fetcher(Environment.GetEnvironmentVariable("LINKSTASH_PROXY"));
+
+        var result = await FetchWithRetry(
+            fetcher,
+            "https://github.com/SerhiiKorniienko/bullshit-detector",
+            extractLinks: false
+        );
+
+        // 原始 <title> 是 "GitHub - owner/repo: 描述 · GitHub"，应收敛为 owner/repo
+        Assert.Equal("SerhiiKorniienko/bullshit-detector", result.Title);
+        Assert.DoesNotContain("GitHub -", result.Title);
     }
 }

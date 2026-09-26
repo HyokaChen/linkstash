@@ -77,6 +77,7 @@ public class PageFetcher(HttpClient http)
 
         var description = CleanDescription(
             FirstNonEmpty(
+                ExtractGitHubAbout(doc),
                 doc.QuerySelector("meta[property='og:description']")?.GetAttribute("content"),
                 doc.QuerySelector("meta[name='description']")?.GetAttribute("content")
             )?.Trim(),
@@ -87,6 +88,30 @@ public class PageFetcher(HttpClient http)
         var products = extractLinks ? ExtractProducts(doc) : [];
 
         return new FetchResult(title, description, isFallback, links, products);
+    }
+
+    /// <summary>
+    /// 取 GitHub 仓库页右侧 About 栏的简介 &lt;p&gt;。这是用户真正想读的描述：
+    /// og:description 会在尾部追加 " - owner/repo"，About 栏则是干净原文
+    /// （实测该页仅匹配到一个 description &lt;p&gt;，无歧义）。
+    /// 选择器依据 About 标题与稳定类名前缀，避开 GitHub 每次发版都会变的
+    /// CSS-module 哈希（形如 prc-PageLayout-PaneWrapper-pHPop）。
+    /// </summary>
+    private static string? ExtractGitHubAbout(AngleSharp.Dom.IDocument doc)
+    {
+        foreach (var heading in doc.QuerySelectorAll("h2"))
+        {
+            if (!string.Equals(heading.TextContent.Trim(), "About", StringComparison.OrdinalIgnoreCase))
+                continue;
+            var text = heading.ParentElement?
+                .QuerySelector("p[class*='description']")?
+                .TextContent.Trim();
+            if (!string.IsNullOrWhiteSpace(text)) return text;
+        }
+
+        var byPrefix = doc.QuerySelector("p[class*='SidebarAbout-module__description']");
+        var fallback = byPrefix?.TextContent.Trim();
+        return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
     }
 
     /// <summary>
