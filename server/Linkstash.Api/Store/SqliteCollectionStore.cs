@@ -44,14 +44,12 @@ public class SqliteCollectionStore(string connectionString) : ICollectionStore
         if (!hasTags)
         {
             await using var alter = conn.CreateCommand();
-            alter.CommandText =
-                "ALTER TABLE collections ADD COLUMN tags TEXT NOT NULL DEFAULT '';";
+            alter.CommandText = "ALTER TABLE collections ADD COLUMN tags TEXT NOT NULL DEFAULT '';";
             await alter.ExecuteNonQueryAsync(ct);
         }
 
         await using var idx = conn.CreateCommand();
-        idx.CommandText =
-            "CREATE INDEX IF NOT EXISTS idx_collections_tags ON collections(tags);";
+        idx.CommandText = "CREATE INDEX IF NOT EXISTS idx_collections_tags ON collections(tags);";
         await idx.ExecuteNonQueryAsync(ct);
     }
 
@@ -136,11 +134,15 @@ public class SqliteCollectionStore(string connectionString) : ICollectionStore
         foreach (var raw in list)
         {
             var now = DateTimeOffset.UtcNow.ToString("o");
-            var item = string.IsNullOrEmpty(raw.Id)
-                ? raw with { Id = Guid.NewGuid().ToString("N"), CreatedAt = now }
-                : string.IsNullOrEmpty(raw.CreatedAt)
-                    ? raw with { CreatedAt = now }
-                    : raw;
+            var item =
+                string.IsNullOrEmpty(raw.Id)
+                    ? raw with
+                    {
+                        Id = Guid.NewGuid().ToString("N"),
+                        CreatedAt = now,
+                    }
+                : string.IsNullOrEmpty(raw.CreatedAt) ? raw with { CreatedAt = now }
+                : raw;
             pId.Value = item.Id;
             pUrl.Value = item.Url;
             pTitle.Value = item.Title;

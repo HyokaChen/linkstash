@@ -38,17 +38,66 @@ public static class Tagger
         "图像识别",
     ];
 
-    private static readonly Dictionary<string, string[]> Keywords = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, string[]> Keywords = new(
+        StringComparer.OrdinalIgnoreCase
+    )
     {
         ["AI"] = ["智能体", "大模型", "llm", "gpt", "claude", "agent skill", "mcp", "rag", "ai "],
-        ["创业"] = ["创业", "融资", "商业模式", "mvp", "startup", "founder", "venture capital", "saas"],
+        ["创业"] =
+        [
+            "创业",
+            "融资",
+            "商业模式",
+            "mvp",
+            "startup",
+            "founder",
+            "venture capital",
+            "saas",
+        ],
         ["csharp"] = ["c#", "csharp", ".net", "dotnet", "asp.net", "blazor", "nuget", "roslyn"],
-        ["python"] = ["python", "django", "flask", "fastapi", "pytest", "numpy", "pandas", "asyncio"],
-        ["运维"] = ["运维", "kubernetes", "docker", "devops", "terraform", "ansible", "prometheus", "grafana"],
-        ["爬虫"] = ["爬虫", "scrapy", "crawler", "spider", "selenium", "playwright", "beautifulsoup"],
+        ["python"] =
+        [
+            "python",
+            "django",
+            "flask",
+            "fastapi",
+            "pytest",
+            "numpy",
+            "pandas",
+            "asyncio",
+        ],
+        ["运维"] =
+        [
+            "运维",
+            "kubernetes",
+            "docker",
+            "devops",
+            "terraform",
+            "ansible",
+            "prometheus",
+            "grafana",
+        ],
+        ["爬虫"] =
+        [
+            "爬虫",
+            "scrapy",
+            "crawler",
+            "spider",
+            "selenium",
+            "playwright",
+            "beautifulsoup",
+        ],
         ["客户端"] = ["客户端", "electron", "tauri", "flutter", "react native", "desktop app"],
         ["数据库"] = ["数据库", "postgres", "mysql", "sqlite", "redis", "mongodb", "orm", "索引"],
-        ["算法"] = ["算法", "leetcode", "neural network", "transformer", "machine learning", "deep learning"],
+        ["算法"] =
+        [
+            "算法",
+            "leetcode",
+            "neural network",
+            "transformer",
+            "machine learning",
+            "deep learning",
+        ],
         ["金融"] = ["金融", "fintech", "trading", "blockchain", "量化", "支付", "crypto"],
         ["检索"] = ["检索", "search engine", "vector db", "retrieval", "全文检索", "搜索"],
         ["测试"] = ["测试", "test coverage", "e2e", "unit test", "integration test", "fuzzing"],
@@ -58,9 +107,28 @@ public static class Tagger
         ["zig"] = ["zig"],
         ["p2p"] = ["p2p", "peer-to-peer", "webrtc", "libp2p", "ipfs", "去中心化"],
         ["学习"] = ["学习", "教程", "tutorial", "course", "roadmap", "cheatsheet", "入门指南"],
-        ["前端"] = ["前端", "react", "vue", "svelte", "angular", "css", "next.js", "nuxt", "sveltekit"],
+        ["前端"] =
+        [
+            "前端",
+            "react",
+            "vue",
+            "svelte",
+            "angular",
+            "css",
+            "next.js",
+            "nuxt",
+            "sveltekit",
+        ],
         ["设计"] = ["设计", "figma", "ui/ux", "交互设计", "typography", "原型设计"],
-        ["图像识别"] = ["图像识别", "computer vision", "object detection", "ocr", "yolo", "图像处理"],
+        ["图像识别"] =
+        [
+            "图像识别",
+            "computer vision",
+            "object detection",
+            "ocr",
+            "yolo",
+            "图像处理",
+        ],
     };
 
     /// <summary>根据标题与译文推断标签，返回 "#熊掌记/分类" 形式（逗号分隔）。</summary>
@@ -95,7 +163,9 @@ public static class Tagger
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var result = new List<string>();
 
-        foreach (var part in raw.Split([',', '，', '、', ' '], StringSplitOptions.RemoveEmptyEntries))
+        foreach (
+            var part in raw.Split([',', '，', '、', ' '], StringSplitOptions.RemoveEmptyEntries)
+        )
         {
             var tag = part.Trim();
             if (!tag.StartsWith('#'))

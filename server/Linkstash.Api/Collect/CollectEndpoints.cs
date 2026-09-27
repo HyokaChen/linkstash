@@ -154,10 +154,7 @@ public static class CollectEndpoints
                 "/api/collections/{id}/tags",
                 async (string id, TagsRequest req, ICollectionStore store) =>
                 {
-                    var updated = await store.UpdateTagsAsync(
-                        id,
-                        Store.Tagger.Normalize(req.Tags)
-                    );
+                    var updated = await store.UpdateTagsAsync(id, Store.Tagger.Normalize(req.Tags));
                     return updated is null
                         ? Results.NotFound(new { error = "not found" })
                         : Results.Json(new { tags = updated.Tags });
