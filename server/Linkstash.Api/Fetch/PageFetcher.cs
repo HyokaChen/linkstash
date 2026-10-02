@@ -26,7 +26,7 @@ public class PageFetchException(string url, string message) : Exception(message)
     public string Url { get; } = url;
 }
 
-public class PageFetcher(HttpClient http)
+public partial class PageFetcher(HttpClient http)
 {
     private const int MaxBodyChars = 2_000_000;
 
@@ -187,6 +187,7 @@ public class PageFetcher(HttpClient http)
         "res.wx.qq.com",
         "mp.weixin.qq.com",
         "wx.qq.com",
+        "weiyun.com",
         "captcha.gtimg.com",
         "google-analytics.com",
         "googletagmanager.com",
@@ -257,8 +258,48 @@ public class PageFetcher(HttpClient http)
             }
         }
 
+        // 3) 正文纯文本中的 URL——腾讯微云等分享页把链接直接写进文本，
+        //    既不是 a[href]，也不构成独立文本节点，前两条来源都会漏掉。
+        //    实测该页正文含 14 个裸 URL，其中 4 个形如「昵称:https://…」。
+        //    昵称经实测是分享者名而非标题，故统一不作为标题，标题走回源抓取。
+        if (doc.Body is { } body)
+        {
+            var text = body.TextContent;
+            if (text.Length > 0)
+            {
+                // 3a) 裸 URL：覆盖直接书写与「昵称:URL」两种形态
+                foreach (Match m in BareUrlRegex().Matches(text))
+                {
+                    if (m.Groups["prefix"].Success)
+                    {
+                        var prefix = m.Groups["prefix"].Value.Trim();
+                        if (prefix.Length < 2 || IsLinkPrefix(prefix))
+                            continue;
+                    }
+                    TryAdd(m.Groups["url"].Value, null);
+                }
+            }
+        }
+
         return result;
     }
+
+    /// <summary>
+    /// 匹配正文中的 URL，可带「短前缀:」（如分享者昵称）。
+    /// 前缀限 24 字符且不含 URL 常用符号，避免把整段散文误判为前缀。
+    /// </summary>
+    [GeneratedRegex(
+        @"(?:(?<prefix>[^:\s<>，。、）)]{1,24})[:：]\s*)?(?<url>https?://[^\s，。、）)""']+)",
+        RegexOptions.IgnoreCase
+    )]
+    private static partial Regex BareUrlRegex();
+
+    /// <summary>前缀本身是链接片段（如 "http"、"www"）时，说明并非昵称，忽略该匹配。</summary>
+    private static bool IsLinkPrefix(string prefix) =>
+        prefix.Equals("http", StringComparison.OrdinalIgnoreCase)
+        || prefix.Equals("https", StringComparison.OrdinalIgnoreCase)
+        || prefix.Equals("www", StringComparison.OrdinalIgnoreCase);
+
 
     /// <summary>
     /// 提取结构化条目。适用于「Show HN 周报」「产品清单」这类正文里用固定标签

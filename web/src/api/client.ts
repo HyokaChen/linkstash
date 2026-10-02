@@ -14,11 +14,50 @@ export interface CollectionItem {
   isFallbackTitle: boolean
   createdAt: string
   tags: string
+  groupId: string | null
 }
 
 export interface CollectResult extends CollectionItem {
   markdown: string
   itemCount: number
+}
+
+/** 统一解析结果条目。isExisting=true 表示已收藏，前端置灰不可勾选。 */
+export interface ResolveCandidate {
+  input: string
+  url: string
+  title: string
+  translation: string
+  isFallbackTitle: boolean
+  tags: string
+  isExisting: boolean
+}
+
+export interface ResolveResult {
+  resolved: ResolveCandidate[]
+  unresolved: string[]
+}
+
+export interface ImportCandidate {
+  url: string
+  title: string
+  folderPath: string
+  isExisting: boolean
+}
+
+export interface ImportPreviewResult {
+  groupId: string
+  name: string
+  total: number
+  skipped: number
+  candidates: ImportCandidate[]
+}
+
+export interface BatchItemPayload {
+  url: string
+  title: string
+  translation: string
+  groupId?: string
 }
 
 export interface CollectionsPage {

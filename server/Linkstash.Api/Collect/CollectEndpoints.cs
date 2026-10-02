@@ -1,4 +1,6 @@
+using Linkstash.Api.Collect;
 using Linkstash.Api.Fetch;
+using Linkstash.Api.Resolve;
 using Linkstash.Api.Store;
 using Linkstash.Api.Translate;
 
@@ -96,8 +98,21 @@ public static class CollectEndpoints
                 "/api/collect/batch",
                 async (BatchRequest req, ICollectionStore store) =>
                 {
-                    var items = (req.Items ?? [])
+                    var picked = (req.Items ?? [])
                         .Where(i => !string.IsNullOrWhiteSpace(i.Url))
+                        .ToList();
+                    if (picked.Count == 0)
+                        return Results.BadRequest(new { error = "没有可保存的条目" });
+
+                    // 复用调用方指定的 group；否则按 GroupName 新建一个。
+                    string? groupId = picked.FirstOrDefault(i => !string.IsNullOrEmpty(i.GroupId))?.GroupId;
+                    if (groupId is null && !string.IsNullOrWhiteSpace(req.GroupName))
+                    {
+                        var group = await store.CreateGroupAsync(req.GroupName!, req.SourceUrl);
+                        groupId = group.Id;
+                    }
+
+                    var items = picked
                         .Select(i =>
                         {
                             var title = i.Title ?? "";
@@ -107,14 +122,17 @@ public static class CollectEndpoints
                                 i.Url,
                                 title,
                                 translation,
-                                null,
+                                groupId is null ? null : req.SourceUrl,
                                 false,
                                 "",
-                                Tagger.AutoTag(title, translation)
+                                Tagger.AutoTag(title, translation),
+                                i.GroupId ?? groupId
                             );
-                        });
+                        })
+                        .ToList();
+
                     var saved = await store.AddBatchAsync(items);
-                    return Results.Json(new { saved });
+                    return Results.Json(new { saved, groupId });
                 }
             )
             .RequireAuthorization();
@@ -173,6 +191,167 @@ public static class CollectEndpoints
                 }
             )
             .RequireAuthorization();
+
+        // 统一解析入口：完整 URL / owner-repo slug / 关键词 混合粘贴都走这里。
+        app.MapPost(
+                "/api/collect/resolve",
+                async (
+                    ResolveRequest req,
+                    PageFetcher fetcher,
+                    TranslateService translator,
+                    SlugResolver slugResolver,
+                    SearchResolver searchResolver,
+                    ICollectionStore store
+                ) =>
+                {
+                    var inputs = InputResolver.Resolve(req.Input);
+                    if (inputs.Count == 0)
+ {
+                        return Results.BadRequest(new { error = "未识别到有效内容" });
+                    }
+
+                    // 每条输入 → 一个或多个候选 URL；解析不到时记录原文供前端提示。
+                    var urlToInput = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    var unresolved = new List<string>();
+
+                    foreach (var input in inputs)
+                    {
+                        switch (input.Kind)
+                        {
+                            case InputKind.Url:
+                                if (UrlNormalizer.Normalize(input.Url) is { } u)
+                                    urlToInput[u] = input.Raw;
+                                else
+                                    unresolved.Add(input.Raw);
+                                break;
+
+                            case InputKind.Slug:
+ {
+                                var slugUrl = await slugResolver.TryResolveRepoAsync(input.Raw);
+                                if (slugUrl is not null)
+                                {
+                                    if (UrlNormalizer.Normalize(slugUrl) is { } ru)
+                                        urlToInput[ru] = input.Raw;
+                                }
+                                else
+                                {
+                                    // 仓库不存在，退化为检索
+                                    await AddSearchResultsAsync(
+                                        $"{input.Raw} github",
+                                        urlToInput,
+                                        unresolved,
+                                        searchResolver
+                                    );
+                                }
+                                break;
+                            }
+
+                            default:
+                                await AddSearchResultsAsync(
+                                    input.Raw,
+                                    urlToInput,
+                                    unresolved,
+                                    searchResolver
+                                );
+                                break;
+                        }
+                    }
+
+                    if (urlToInput.Count == 0)
+                    {
+                        return Results.BadRequest(
+                            new
+                            {
+                                error = "未能解析出任何网址，请确认输入或手动补全完整 URL",
+                                unresolved,
+                            }
+                        );
+                    }
+
+                    // 剔除已收藏
+                    var normalizedUrls = urlToInput.Keys.ToList();
+                    var existing = await store.ExistingNormalizedUrlsAsync(normalizedUrls);
+
+                    var targets = urlToInput
+                        .Where(kv => !existing.Contains(kv.Key))
+                        .Select(kv => kv.Key)
+                        .ToList();
+
+                    var resolved = new List<ResolvedCandidate>(targets.Count);
+                    var gate = new object();
+
+                    await Parallel.ForEachAsync(
+                        targets,
+                        new ParallelOptions { MaxDegreeOfParallelism = 3 },
+                        async (url, ct) =>
+                        {
+                            var title = url;
+                            string? translation = null;
+                            var isFallback = true;
+                            try
+                            {
+                                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                                cts.CancelAfter(TimeSpan.FromSeconds(15));
+                                var fetched = await fetcher.FetchAsync(url, false, cts.Token);
+                                title = fetched.Title;
+                                isFallback = fetched.IsFallback;
+                                var source = string.IsNullOrWhiteSpace(fetched.Description)
+                                    ? title
+                                    : fetched.Description;
+                                translation = await translator.TranslateAsync(source);
+                            }
+                            catch (Exception)
+                            {
+                                translation = title;
+                            }
+
+                            var candidate = new ResolvedCandidate(
+                                urlToInput[url],
+                                url,
+                                title,
+                                translation ?? title,
+                                isFallback,
+                                Tagger.AutoTag(title, translation ?? ""),
+                                false
+                            );
+                            lock (gate)
+                                resolved.Add(candidate);
+                        }
+                    );
+
+                    // 已存在的条目也回传，让前端能显示"已收藏，跳过"
+                    foreach (var kv in urlToInput.Where(k => existing.Contains(k.Key)))
+ {
+                        resolved.Add(
+                            new ResolvedCandidate(kv.Value, kv.Key, kv.Key, "", true, "", true)
+                        );
+                    }
+
+                    return Results.Json(new { resolved, unresolved });
+                }
+            )
+            .RequireAuthorization();
+    }
+
+    private static async Task AddSearchResultsAsync(
+        string query,
+        Dictionary<string, string> urlToInput,
+        List<string> unresolved,
+        SearchResolver searchResolver
+    )
+    {
+        var hits = await searchResolver.SearchAsync(query);
+        if (hits.Count == 0)
+        {
+            unresolved.Add(query);
+            return;
+        }
+
+        foreach (var hit in hits)
+        {
+            if (UrlNormalizer.Normalize(hit.Url) is { } norm)
+                urlToInput.TryAdd(norm, query);
+        }
     }
 
     private static async Task<List<CandidateItem>> ExtractCandidatesAsync(

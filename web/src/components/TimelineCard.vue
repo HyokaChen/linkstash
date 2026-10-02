@@ -29,6 +29,34 @@ const tags = ref<string[]>(
 const pickerOpen = ref(false)
 const saving = ref(false)
 
+// 集合展示：groupId 非空时展示来源标识，点击内联展开同组成员
+const groupOpen = ref(false)
+const groupItems = ref<CollectionItem[] | null>(null)
+const groupLoading = ref(false)
+
+async function toggleGroup() {
+  if (groupOpen.value) {
+    groupOpen.value = false
+    return
+  }
+  groupOpen.value = true
+  if (groupItems.value || !props.item.groupId) return
+
+  groupLoading.value = true
+  try {
+    const data = await api<{ items: CollectionItem[] }>(
+      `/api/groups/${props.item.groupId}/items`,
+    )
+    groupItems.value = data.items
+  } catch {
+    groupItems.value = []
+  } finally {
+    groupLoading.value = false
+  }
+}
+
+const groupCount = computed(() => groupItems.value?.length ?? 0)
+
 const markdown = computed(() => {
   const raw = (props.item as { markdown?: string }).markdown
   return raw
@@ -164,6 +192,37 @@ async function remove() {
             <TrashIcon class="size-3.5" />
             <span class="sr-only">删除</span>
           </Button>
+        </div>
+      </div>
+
+      <!-- 集合来源：点击展开同组成员 -->
+      <div v-if="item.groupId" class="pl-[4.75rem]">
+        <button
+          type="button"
+          class="text-xs text-muted-foreground hover:text-foreground"
+          @click="toggleGroup"
+        >
+          {{ groupOpen ? '▾' : '▸' }} 来自集合
+          <template v-if="groupCount">· {{ groupCount }} 条</template>
+        </button>
+        <div v-if="groupOpen" class="mt-1.5 space-y-1 border-l pl-2.5">
+          <p v-if="groupLoading" class="text-xs text-muted-foreground">加载中…</p>
+          <p
+            v-else-if="groupItems && groupItems.length === 0"
+            class="text-xs text-muted-foreground"
+          >
+            暂无其他成员
+          </p>
+          <a
+            v-for="member in groupItems ?? []"
+            :key="member.id"
+            :href="member.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="block truncate text-xs text-muted-foreground hover:text-primary hover:underline"
+          >
+            {{ member.title || member.url }}
+          </a>
         </div>
       </div>
     </CardContent>
