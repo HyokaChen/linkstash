@@ -43,9 +43,7 @@ public class InputResolverTests
     [Fact]
     public void Resolve_SpaceSeparatedUrls_EachParsed()
     {
-        var result = InputResolver.Resolve(
-            "https://github.com/a/one https://github.com/b/two"
-        );
+        var result = InputResolver.Resolve("https://github.com/a/one https://github.com/b/two");
         var urls = result.Where(r => r.Kind == InputKind.Url).ToList();
         Assert.Equal(2, urls.Count);
     }
@@ -73,9 +71,7 @@ public class InputResolverTests
     [Fact]
     public void Resolve_MixedInput_ClassifiesEachKind()
     {
-        var result = InputResolver.Resolve(
-            "https://example.com/x，owner/repo，关键词搜索"
-        );
+        var result = InputResolver.Resolve("https://example.com/x，owner/repo，关键词搜索");
         Assert.Contains(result, r => r.Kind == InputKind.Url);
         Assert.Contains(result, r => r.Kind == InputKind.Slug);
         Assert.Contains(result, r => r.Kind == InputKind.SearchQuery);
@@ -112,13 +108,13 @@ public class UrlNormalizerTests
         Assert.Null(UrlNormalizer.Normalize(input));
 
     [Fact]
-    public void Clean_TrimsOnly() => Assert.Equal("https://x/y/", UrlNormalizer.Clean("  https://x/y/  "));
+    public void Clean_TrimsOnly() =>
+        Assert.Equal("https://x/y/", UrlNormalizer.Clean("  https://x/y/  "));
 }
 
 public class BookmarkParserTests
 {
-    private const string Sample =
-        """
+    private const string Sample = """
         <!DOCTYPE NETSCAPE-Bookmark-file-1>
         <DL><p>
             <DT><H3 ADD_DATE="1">Bookmarks bar</H3>
@@ -151,7 +147,8 @@ public class BookmarkParserTests
     [Fact]
     public void Parse_IgnoresJavascriptPlaceholders()
     {
-        var html = """<DL><p><DT><A HREF="javascript:void(0);">x</A><DT><A HREF="https://a.com/">a</A></DL><p>""";
+        var html =
+            """<DL><p><DT><A HREF="javascript:void(0);">x</A><DT><A HREF="https://a.com/">a</A></DL><p>""";
         var entries = BookmarkParser.Parse(html);
         Assert.Single(entries);
         Assert.Equal("https://a.com/", entries[0].Url);
@@ -167,8 +164,7 @@ public class BookmarkParserTests
 
 public class SearchResolverTests
 {
-    private const string DdgHtml =
-        """
+    private const string DdgHtml = """
         <div class="result">
           <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fgithub.com%2Fvoidmuse-dev%2Fvoidmuse&amp;rut=abc">voidmuse</a>
         </div>
@@ -186,9 +182,7 @@ public class SearchResolverTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken ct
-        ) => Task.FromResult(
-            new HttpResponseMessage(status) { Content = new StringContent(body) }
-        );
+        ) => Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
     }
 
     [Fact]
@@ -243,9 +237,7 @@ public class SlugResolverTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken ct
-        ) => Task.FromResult(
-            new HttpResponseMessage(status) { Content = new StringContent(body) }
-        );
+        ) => Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
     }
 
     private static HttpClient Client(HttpStatusCode status, string body)

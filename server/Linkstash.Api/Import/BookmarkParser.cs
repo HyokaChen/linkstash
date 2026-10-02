@@ -61,10 +61,7 @@ public static partial class BookmarkParser
                     continue;
                 }
 
-                var path = string.Join(
-                    "/",
-                    stack.Where(s => !string.IsNullOrWhiteSpace(s))
-                );
+                var path = string.Join("/", stack.Where(s => !string.IsNullOrWhiteSpace(s)));
                 entries.Add(new BookmarkEntry(url, title, path));
             }
         }

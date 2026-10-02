@@ -3,6 +3,7 @@ namespace Linkstash.Api.Collect;
 public record CollectRequest(string Url, bool ExtractLinks = false);
 
 public record ExtractRequest(string Url);
+
 public record BatchRequest(
     IEnumerable<BatchItem> Items,
     string? GroupName = null,
@@ -29,12 +30,7 @@ public record ResolvedCandidate(
 public record ImportBookmarksRequest(string Html, string? GroupName = null);
 
 /// <summary>书签解析出的候选条目。</summary>
-public record ImportCandidate(
-    string Url,
-    string Title,
-    string FolderPath,
-    bool IsExisting
-);
+public record ImportCandidate(string Url, string Title, string FolderPath, bool IsExisting);
 
 public record CandidateItem(string Url, string Title, string Translation, bool IsFallbackTitle);
 

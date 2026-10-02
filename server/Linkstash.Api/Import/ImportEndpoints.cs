@@ -24,7 +24,9 @@ public static class ImportEndpoints
                     }
 
                     // 标准化去重
-                    var unique = new Dictionary<string, BookmarkEntry>(StringComparer.OrdinalIgnoreCase);
+                    var unique = new Dictionary<string, BookmarkEntry>(
+                        StringComparer.OrdinalIgnoreCase
+                    );
                     foreach (var entry in entries)
                     {
                         if (UrlNormalizer.Normalize(entry.Url) is { } norm)

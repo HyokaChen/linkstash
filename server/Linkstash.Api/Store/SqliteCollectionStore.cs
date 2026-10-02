@@ -251,7 +251,10 @@ public class SqliteCollectionStore(string connectionString) : ICollectionStore
         if (normalizedUrls.Count == 0)
             return found;
 
-        var candidates = normalizedUrls.Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().ToList();
+        var candidates = normalizedUrls
+            .Where(u => !string.IsNullOrWhiteSpace(u))
+            .Distinct()
+            .ToList();
 
         await using var conn = new SqliteConnection(connectionString);
         await conn.OpenAsync();

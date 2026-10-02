@@ -105,7 +105,9 @@ public static class CollectEndpoints
                         return Results.BadRequest(new { error = "没有可保存的条目" });
 
                     // 复用调用方指定的 group；否则按 GroupName 新建一个。
-                    string? groupId = picked.FirstOrDefault(i => !string.IsNullOrEmpty(i.GroupId))?.GroupId;
+                    string? groupId = picked
+                        .FirstOrDefault(i => !string.IsNullOrEmpty(i.GroupId))
+                        ?.GroupId;
                     if (groupId is null && !string.IsNullOrWhiteSpace(req.GroupName))
                     {
                         var group = await store.CreateGroupAsync(req.GroupName!, req.SourceUrl);
@@ -206,12 +208,14 @@ public static class CollectEndpoints
                 {
                     var inputs = InputResolver.Resolve(req.Input);
                     if (inputs.Count == 0)
- {
+                    {
                         return Results.BadRequest(new { error = "未识别到有效内容" });
                     }
 
                     // 每条输入 → 一个或多个候选 URL；解析不到时记录原文供前端提示。
-                    var urlToInput = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    var urlToInput = new Dictionary<string, string>(
+                        StringComparer.OrdinalIgnoreCase
+                    );
                     var unresolved = new List<string>();
 
                     foreach (var input in inputs)
@@ -226,7 +230,7 @@ public static class CollectEndpoints
                                 break;
 
                             case InputKind.Slug:
- {
+                            {
                                 var slugUrl = await slugResolver.TryResolveRepoAsync(input.Raw);
                                 if (slugUrl is not null)
                                 {
@@ -321,7 +325,7 @@ public static class CollectEndpoints
 
                     // 已存在的条目也回传，让前端能显示"已收藏，跳过"
                     foreach (var kv in urlToInput.Where(k => existing.Contains(k.Key)))
- {
+                    {
                         resolved.Add(
                             new ResolvedCandidate(kv.Value, kv.Key, kv.Key, "", true, "", true)
                         );

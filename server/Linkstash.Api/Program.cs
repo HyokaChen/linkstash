@@ -47,25 +47,25 @@ builder
 
 // slug 与检索解析：不套用 Proxy:FetchUrl——抓取代理指向收藏目标站点，
 // 与检索出口无关，避免境外检索 API 被强制走同一个代理而失败。
-builder.Services.AddHttpClient<SlugResolver>(c =>
+builder
+    .Services.AddHttpClient<SlugResolver>(c =>
     {
         c.BaseAddress = new Uri("https://api.github.com");
         c.Timeout = TimeSpan.FromSeconds(10);
         c.DefaultRequestHeaders.UserAgent.ParseAdd("linkstash/1.0");
-    }
-)
-.ConfigurePrimaryHttpMessageHandler(FetchHandler);
+    })
+    .ConfigurePrimaryHttpMessageHandler(FetchHandler);
 
-builder.Services.AddHttpClient<SearchResolver>(c =>
+builder
+    .Services.AddHttpClient<SearchResolver>(c =>
     {
         c.Timeout = TimeSpan.FromSeconds(10);
         c.DefaultRequestHeaders.UserAgent.ParseAdd(
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
                 + "(KHTML, like Gecko) Chrome/130.0 Safari/537.36"
         );
-    }
-)
-.ConfigurePrimaryHttpMessageHandler(FetchHandler);
+    })
+    .ConfigurePrimaryHttpMessageHandler(FetchHandler);
 var translateOptions =
     builder.Configuration.GetSection("Translate").Get<TranslateOptions>() ?? new TranslateOptions();
 builder.Services.AddSingleton(translateOptions);

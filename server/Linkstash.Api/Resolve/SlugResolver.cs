@@ -8,10 +8,7 @@ namespace Linkstash.Api.Resolve;
 /// </summary>
 public class SlugResolver(HttpClient http, ILogger<SlugResolver> log)
 {
-    public async Task<string?> TryResolveRepoAsync(
-        string slug,
-        CancellationToken ct = default
-    )
+    public async Task<string?> TryResolveRepoAsync(string slug, CancellationToken ct = default)
     {
         try
         {
@@ -30,7 +27,8 @@ public class SlugResolver(HttpClient http, ILogger<SlugResolver> log)
             }
             return null;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        catch (Exception ex)
+            when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             // 未命中/网络异常都不是致命情况，交由检索层兜底
             log.LogDebug(ex, "slug resolve failed: {Slug}", slug);

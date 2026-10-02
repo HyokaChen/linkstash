@@ -300,7 +300,6 @@ public partial class PageFetcher(HttpClient http)
         || prefix.Equals("https", StringComparison.OrdinalIgnoreCase)
         || prefix.Equals("www", StringComparison.OrdinalIgnoreCase);
 
-
     /// <summary>
     /// 提取结构化条目。适用于「Show HN 周报」「产品清单」这类正文里用固定标签
     /// 罗列多个条目的页面（微信公众号文章实测为 20 条，标签形如
