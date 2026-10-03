@@ -198,6 +198,151 @@ public class SearchResolverTests
         Assert.Equal("voidmuse", hits[0].Title);
     }
 
+    /// <summary>
+    /// 回归：u 参数形如 a1aHR0cHM6Ly8…，"a1" 是 base64 数据本身的前缀。
+    /// 早期实现直接在原始串里定位 "u=a1" 并跳过 3 个字符，把数据首字节切掉，
+    /// 解出乱码，导致 bing.com/ck/a 跳转地址被原样入库。
+    /// </summary>
+    [Fact]
+    public async Task SearchAsync_BingUnwrapsCkRedirectToRealUrl()
+    {
+        // u = a1 + base64url("https://github.com/voidmuse-dev/voidmuse")
+        var payload =
+            Convert
+                .ToBase64String(
+                    System.Text.Encoding.UTF8.GetBytes(
+                        "https://github.com/voidmuse-dev/voidmuse"
+                    )
+                )
+                .Replace('+', '-')
+                .Replace('/', '_')
+                .TrimEnd('=');
+        var html =
+            $"""
+            <li class="b_algo">
+              <h2><a target="_blank" href="https://www.bing.com/ck/a?!&amp;&amp;p=abc&amp;u=a1{payload}">voidmuse</a></h2>
+              <p class="b_lineclamp">An AI IDE plugin</p>
+            </li>
+            """;
+
+        var sut = new SearchResolver(
+            ClientReturning(html, HttpStatusCode.OK),
+            NullLogger<SearchResolver>.Instance
+        );
+
+        // DDG 解析器在该 HTML 上无匹配，会自动降级到 Bing
+        var hits = await sut.SearchAsync("voidmuse github");
+        Assert.Single(hits);
+        Assert.Equal("https://github.com/voidmuse-dev/voidmuse", hits[0].Url);
+        Assert.Equal("voidmuse", hits[0].Title);
+    }
+
+    [Fact]
+    public async Task SearchAsync_AllEnginesFail_ReturnsEmptyWithoutThrowing()
+    {
+        var sut = new SearchResolver(
+            ClientReturning("", HttpStatusCode.Accepted),
+            NullLogger<SearchResolver>.Instance
+        );
+        Assert.Empty(await sut.SearchAsync("davia labs"));
+    }
+
+    /// <summary>
+    /// 回归：Bing 在部分出口返回完全无关的结果，若直接入库会污染收藏库。
+    /// "zzz nonexistent 99999" 曾召回游戏 wiki（标题含 "Zenless Zone ZZZ"），
+    /// "voidmuse github" 曾召回 LinkedIn 人名页。两者都必须被过滤掉。
+    /// </summary>
+    [Fact]
+    public async Task SearchAsync_RejectsIrrelevantBingResults()
+    {
+        var bingHtml =
+            """
+            <li class="b_algo">
+              <h2><a href="https://game8.jp/zenless">ゼンレスゾーンゼロ攻略｜ゼンゼロ/ZZZ｜ゲームエイト</a></h2>
+              <p class="b_lineclamp">A guide for the game project 99999 nonexistent</p>
+            </li>
+            <li class="b_algo">
+              <h2><a href="https://www.linkedin.com/in/madison-wallis-881">Madison Wallis</a></h2>
+              <p class="b_lineclamp">voidmuse github profile</p>
+            </li>
+            """;
+
+        var sut = new SearchResolver(
+            ClientReturning(bingHtml, HttpStatusCode.OK),
+            NullLogger<SearchResolver>.Instance
+        );
+
+        Assert.Empty(await sut.SearchAsync("zzz nonexistent 99999"));
+        Assert.Empty(await sut.SearchAsync("voidmuse github"));
+    }
+
+    [Fact]
+    public async Task SearchAsync_KeepsResultMatchingAllRealKeywords()
+    {
+        var bingHtml =
+            """
+            <li class="b_algo">
+              <h2><a href="https://github.com/voidmuse-dev/voidmuse">voidmuse - AI IDE plugin</a></h2>
+              <p class="b_lineclamp">Open source AI IDE plugin for code completion</p>
+            </li>
+            """;
+
+        var sut = new SearchResolver(
+            ClientReturning(bingHtml, HttpStatusCode.OK),
+            NullLogger<SearchResolver>.Instance
+        );
+
+        var hits = await sut.SearchAsync("voidmuse github");
+        Assert.Single(hits);
+        Assert.Equal("https://github.com/voidmuse-dev/voidmuse", hits[0].Url);
+    }
+
+    /// <summary>
+    /// 回归：查询 "zzz"（单词）会召回游戏 wiki——关键词只出现在标题
+    /// "ゼンレスゾーンゼロ攻略｜ゼンゼロ/ZZZ" 而不在 URL 路径 /zenless 中。
+    /// 仅靠标题匹配会把整个无关站点写进收藏库。
+    /// </summary>
+    [Fact]
+    public async Task SearchAsync_TitleOnlyKeywordMatch_IsRejected()
+    {
+        var bingHtml =
+            """
+            <li class="b_algo">
+              <h2><a href="https://game8.jp/zenless">ゼンレスゾーンゼロ攻略｜ゼンゼロ/ZZZ｜ゲームエイト</a></h2>
+              <p class="b_lineclamp">zenless zone zero walkthrough</p>
+            </li>
+            """;
+
+        var sut = new SearchResolver(
+            ClientReturning(bingHtml, HttpStatusCode.OK),
+            NullLogger<SearchResolver>.Instance
+        );
+
+        Assert.Empty(await sut.SearchAsync("zzz"));
+    }
+
+    /// <summary>关键词确实出现在 URL 中时应保留。</summary>
+    [Fact]
+    public async Task SearchAsync_KeywordInUrlPath_IsKept()
+    {
+        var bingHtml =
+            """
+            <li class="b_algo">
+              <h2><a href="https://github.com/voidmuse-dev/voidmuse">voidmuse - AI IDE plugin</a></h2>
+              <p class="b_lineclamp">Open source AI IDE plugin</p>
+            </li>
+            """;
+
+        var sut = new SearchResolver(
+            ClientReturning(bingHtml, HttpStatusCode.OK),
+            NullLogger<SearchResolver>.Instance
+        );
+
+        var hits = await sut.SearchAsync("voidmuse");
+        Assert.Single(hits);
+        Assert.Equal("https://github.com/voidmuse-dev/voidmuse", hits[0].Url);
+    }
+
     [Fact]
     public async Task SearchAsync_EmptyQuery_ReturnsEmpty()
     {
