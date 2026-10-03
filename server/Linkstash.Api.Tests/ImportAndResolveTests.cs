@@ -207,18 +207,14 @@ public class SearchResolverTests
     public async Task SearchAsync_BingUnwrapsCkRedirectToRealUrl()
     {
         // u = a1 + base64url("https://github.com/voidmuse-dev/voidmuse")
-        var payload =
-            Convert
-                .ToBase64String(
-                    System.Text.Encoding.UTF8.GetBytes(
-                        "https://github.com/voidmuse-dev/voidmuse"
-                    )
-                )
-                .Replace('+', '-')
-                .Replace('/', '_')
-                .TrimEnd('=');
-        var html =
-            $"""
+        var payload = Convert
+            .ToBase64String(
+                System.Text.Encoding.UTF8.GetBytes("https://github.com/voidmuse-dev/voidmuse")
+            )
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .TrimEnd('=');
+        var html = $"""
             <li class="b_algo">
               <h2><a target="_blank" href="https://www.bing.com/ck/a?!&amp;&amp;p=abc&amp;u=a1{payload}">voidmuse</a></h2>
               <p class="b_lineclamp">An AI IDE plugin</p>
@@ -255,8 +251,7 @@ public class SearchResolverTests
     [Fact]
     public async Task SearchAsync_RejectsIrrelevantBingResults()
     {
-        var bingHtml =
-            """
+        var bingHtml = """
             <li class="b_algo">
               <h2><a href="https://game8.jp/zenless">ゼンレスゾーンゼロ攻略｜ゼンゼロ/ZZZ｜ゲームエイト</a></h2>
               <p class="b_lineclamp">A guide for the game project 99999 nonexistent</p>
@@ -279,8 +274,7 @@ public class SearchResolverTests
     [Fact]
     public async Task SearchAsync_KeepsResultMatchingAllRealKeywords()
     {
-        var bingHtml =
-            """
+        var bingHtml = """
             <li class="b_algo">
               <h2><a href="https://github.com/voidmuse-dev/voidmuse">voidmuse - AI IDE plugin</a></h2>
               <p class="b_lineclamp">Open source AI IDE plugin for code completion</p>
@@ -305,8 +299,7 @@ public class SearchResolverTests
     [Fact]
     public async Task SearchAsync_TitleOnlyKeywordMatch_IsRejected()
     {
-        var bingHtml =
-            """
+        var bingHtml = """
             <li class="b_algo">
               <h2><a href="https://game8.jp/zenless">ゼンレスゾーンゼロ攻略｜ゼンゼロ/ZZZ｜ゲームエイト</a></h2>
               <p class="b_lineclamp">zenless zone zero walkthrough</p>
@@ -325,8 +318,7 @@ public class SearchResolverTests
     [Fact]
     public async Task SearchAsync_KeywordInUrlPath_IsKept()
     {
-        var bingHtml =
-            """
+        var bingHtml = """
             <li class="b_algo">
               <h2><a href="https://github.com/voidmuse-dev/voidmuse">voidmuse - AI IDE plugin</a></h2>
               <p class="b_lineclamp">Open source AI IDE plugin</p>

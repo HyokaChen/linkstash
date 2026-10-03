@@ -94,12 +94,16 @@ public partial class SearchResolver(HttpClient http, ILogger<SearchResolver> log
     /// </summary>
     private static List<SearchHit> FilterRelevant(List<SearchHit> hits, string query)
     {
-        var notSearchHost = hits
-            .Where(h => !SearchHostHosts.Any(s => h.Url.Contains(s, StringComparison.OrdinalIgnoreCase)))
+        var notSearchHost = hits.Where(h =>
+                !SearchHostHosts.Any(s => h.Url.Contains(s, StringComparison.OrdinalIgnoreCase))
+            )
             .ToList();
 
         var keywords = query
-            .Split([' ', '\t', '\n', ',', '，', '.', '/', '-', '_'], StringSplitOptions.RemoveEmptyEntries)
+            .Split(
+                [' ', '\t', '\n', ',', '，', '.', '/', '-', '_'],
+                StringSplitOptions.RemoveEmptyEntries
+            )
             .Select(k => k.Trim().ToLowerInvariant())
             .Where(k => k.Length >= 2)
             .Distinct()
@@ -170,7 +174,7 @@ public partial class SearchResolver(HttpClient http, ILogger<SearchResolver> log
     {
         var index = 0;
         while (index < haystack.Length)
- {
+        {
             var at = haystack.IndexOf(word, index, StringComparison.OrdinalIgnoreCase);
             if (at < 0)
                 return false;
@@ -193,8 +197,7 @@ public partial class SearchResolver(HttpClient http, ILogger<SearchResolver> log
         CancellationToken ct
     )
     {
-        var url =
-            $"https://html.duckduckgo.com/html/?q={Uri.EscapeDataString(query)}";
+        var url = $"https://html.duckduckgo.com/html/?q={Uri.EscapeDataString(query)}";
         var html = await FetchWithRetryAsync(url, null, DdgResultRegex(), ct);
         if (html.Length == 0)
             return [];
@@ -228,13 +231,7 @@ public partial class SearchResolver(HttpClient http, ILogger<SearchResolver> log
                     ? StripTags(snippetMatch.Groups["snippet"].Value)
                     : "";
 
-            hits.Add(
-                new SearchHit(
-                    uri.ToString(),
-                    StripTags(m.Groups["title"].Value),
-                    snippet
-                )
-            );
+            hits.Add(new SearchHit(uri.ToString(), StripTags(m.Groups["title"].Value), snippet));
         }
 
         return hits;
@@ -309,9 +306,7 @@ public partial class SearchResolver(HttpClient http, ILogger<SearchResolver> log
         {
             var padded = payload.Replace('-', '+').Replace('_', '/');
             padded += new string('=', (4 - padded.Length % 4) % 4);
-            var decoded = System.Text.Encoding.UTF8.GetString(
-                Convert.FromBase64String(padded)
-            );
+            var decoded = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(padded));
             return decoded.StartsWith("http", StringComparison.OrdinalIgnoreCase)
                 ? decoded
                 : normalized;
